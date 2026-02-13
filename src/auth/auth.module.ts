@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { AuthController } from './controllers/auth.controller';
-import { AuthService } from './application/auth.service';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from 'src/users/users.module';
+import { AuthController } from './controllers/auth.controller';
+import { AuthService } from './application/auth.service';
 
 @Module({
   // register in imports the modules needed like UsersModule and JwtModule.

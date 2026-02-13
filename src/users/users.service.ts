@@ -1,13 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
-import { PrismaService } from 'src/prisma.service';
+import { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
+import { PrismaService } from 'src/prisma/prisma.service';
+
+// Define a type that includes the user along with their roles and the role details
+type UserWithRoles = Prisma.UserGetPayload<{
+  include: {
+    roles: {
+      include: {
+        rol: true;
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findByEmail(email: string) {
-    return this.prisma.user.findUnique({
+  async findByEmail(email: string): Promise<UserWithRoles | null> {
+    return await this.prisma.user.findUnique({
       where: { email },
       include: {
         roles: {
