@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -169,7 +169,7 @@ async function main(): Promise<void> {
 
   // Create root user
   console.log('Creating root user...');
-  const passwordHash = await bcrypt.hash('root123', 10);
+  const passwordHash = await bcrypt.hash('root12345678', 10);
 
   const rootUser = await prisma.user.create({
     data: {
@@ -189,7 +189,7 @@ async function main(): Promise<void> {
   });
   console.log('Created root user with Admin role');
   console.log('Email: root@system.com');
-  console.log('Password: root123');
+  console.log('Password: root12345678');
 
   console.log('');
   console.log('Seed completed successfully!');
