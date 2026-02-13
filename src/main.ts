@@ -11,13 +11,14 @@ async function bootstrap() {
   .setTitle('Semantic Product Search API')
   .setDescription('API for semantic product search using OpenAI embeddings and Pinecone vector database')
   .setVersion('1.0')
+  .addBearerAuth()
   .build();
 
   // create factory for swagger document
   const documentFactory = () => SwaggerModule.createDocument(app, config);
 
   // setup swagger module
-  SwaggerModule.setup('api', app, documentFactory());
+  SwaggerModule.setup('docs', app, documentFactory());
   
   app.useGlobalPipes(
     new ValidationPipe({

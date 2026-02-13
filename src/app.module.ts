@@ -7,7 +7,8 @@ import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthGuard } from './auth/guards/auth.guard';
-import { RolesGuard } from './auth/guards/roles.guard';
+import { ClientsModule } from './clients/clients.module';
+import { RolesGuard } from './common/guards/roles.guard';
 
 
 @Module({
@@ -19,6 +20,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     PrismaModule,
     AuthModule,
     UsersModule,
+    ClientsModule,
   ],
   controllers: [AppController],
   providers: [

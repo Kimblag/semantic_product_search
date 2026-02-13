@@ -6,11 +6,6 @@
     "deleteOutDir": true,
     "plugins": [
       "@nestjs/swagger"
-    ],
-    "assets": [
-      {
-        "include": "generated/**/*"
-      }
     ]
   }
 }
