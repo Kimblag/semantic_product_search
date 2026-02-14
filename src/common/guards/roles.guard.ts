@@ -4,18 +4,16 @@ import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { IS_PUBLIC_KEY } from 'src/auth/decorators/public.decorator';
 import { RequestWithUser } from 'src/auth/interfaces/request-user.interface';
 
-
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-
     // verify if is public
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
-    ])
+    ]);
 
     // can activate if is public route
     if (isPublic) {
@@ -23,10 +21,10 @@ export class RolesGuard implements CanActivate {
     }
 
     //  Get the required roles from the route handler or controller using the reflector
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     // Check if there are any required roles, if not return true to allow access
     if (!requiredRoles) {

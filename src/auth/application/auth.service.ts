@@ -4,7 +4,6 @@ import { UsersService } from 'src/users/application/users.service';
 import { LoginCommand } from './commands/login.command';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
-
 @Injectable()
 export class AuthService {
   constructor(
@@ -14,7 +13,7 @@ export class AuthService {
   async signIn(loginCommand: LoginCommand): Promise<{ accessToken: string }> {
     const { email, password } = loginCommand;
     const user = await this.userService.findByEmail(email);
-    
+
     // check the user
     if (!user) {
       throw new UnauthorizedException('Invalid credentials.');
