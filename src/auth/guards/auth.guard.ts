@@ -7,7 +7,6 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
-import { RequestWithUser } from '../interfaces/request-user.interface';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
@@ -30,7 +29,7 @@ export class AuthGuard implements CanActivate {
     }
 
     // get the request object from the execution context
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    const request = context.switchToHttp().getRequest<Request>();
 
     // get the authorization header from the request
     const token = this.extractTokenFromHeader(request);

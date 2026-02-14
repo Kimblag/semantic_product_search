@@ -1,8 +1,8 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from '../../common/decorators/roles.decorator';
+import { Request } from 'express';
 import { IS_PUBLIC_KEY } from 'src/auth/decorators/public.decorator';
-import { RequestWithUser } from 'src/auth/interfaces/request-user.interface';
+import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -31,7 +31,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
     // get the user from the request object, which was set by the AuthGuard after verifying the JWT token
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    const request = context.switchToHttp().getRequest<Request>();
     const user = request.user;
     if (!user.roles) {
       return false;
