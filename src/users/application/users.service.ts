@@ -16,6 +16,7 @@ import { GetUserQueryCommand } from './commands/get-user-query.command';
 import { ResetUserPasswordCommand } from './commands/reset-user-password.command';
 import { UpdateUserNameCommand } from './commands/update-user-name.command';
 import { UpdateUserEmailCommand } from './commands/update-user-email.command';
+import { UpdateUserRolesCommand } from './commands/update-user-roles.command';
 
 // Define a type that includes the user along with their roles and the role details
 type UserWithRoles = Prisma.UserGetPayload<{
@@ -182,7 +183,7 @@ export class UsersService {
   }
 
   // change password of a user
-  async changeUserPassword(command: ChangeUserPasswordCommand) {
+  async changeUserPassword(command: ChangeUserPasswordCommand): Promise<void> {
     // search the user
     const user = await this.prisma.user.findFirst({
       where: {
@@ -215,7 +216,7 @@ export class UsersService {
   }
 
   // reset password of a user
-  async resetUserPassword(command: ResetUserPasswordCommand) {
+  async resetUserPassword(command: ResetUserPasswordCommand): Promise<void> {
     // check if user exists
     const user = await this.prisma.user.findFirst({
       where: {
@@ -237,7 +238,7 @@ export class UsersService {
   }
 
   // modify email of a user (ADMIN)
-  async updateUserEmail(command: UpdateUserEmailCommand) {
+  async updateUserEmail(command: UpdateUserEmailCommand): Promise<void> {
     const user = await this.prisma.user.findFirst({
       where: {
         id: command.userId,
@@ -259,7 +260,44 @@ export class UsersService {
   }
 
   // manage user roles (ADMIN)
-  async updateUserRoles() {}
+  async updateUserRoles(command: UpdateUserRolesCommand): Promise<void> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: command.userId,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    // check if provided roles exist in the database
+    const rolesCount = await this.prisma.role.count({
+      where: {
+        id: { in: command.roles },
+      },
+    });
+
+    if (rolesCount !== command.roles.length) {
+      throw new BadRequestException('One or more provided roles are invalid.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: command.userId },
+      data: {
+        roles: {
+          // delete all the current roles
+          deleteMany: {},
+          // create the new relations for the new roles
+          create: command.roles.map((roleId) => ({
+            rol: {
+              connect: { id: roleId },
+            },
+          })),
+        },
+      },
+    });
+  }
 
   async hashPassword(password: string): Promise<string> {
     const hashedPassword = await bcrypt.hash(password, 10);

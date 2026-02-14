@@ -33,6 +33,8 @@ import { UpdateUserNameDto } from '../dto/update-user-name.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
 import { UpdateUserEmailDto } from '../dto/update-user-email.dto';
 import { UpdateUserEmailCommand } from '../application/commands/update-user-email.command';
+import { UpdateUserRolesDto } from '../dto/update-user-roles.dto';
+import { UpdateUserRolesCommand } from '../application/commands/update-user-roles.command';
 
 @ApiBearerAuth()
 @Controller('users')
@@ -95,6 +97,7 @@ export class UsersController {
 
   // change password
   @Roles(Role.EXECUTIVE)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Patch('change-password')
   async changePassword(
     @Body() data: ChangeUserPasswordDto,
@@ -112,6 +115,7 @@ export class UsersController {
 
   // reset password
   @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Patch(':id/reset-password')
   async resetPassword(
     @Body() data: ResetUserPasswordDto,
@@ -126,6 +130,7 @@ export class UsersController {
 
   // update email
   @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Patch(':id/email')
   async updateEmail(
     @Body() data: UpdateUserEmailDto,
@@ -141,8 +146,18 @@ export class UsersController {
 
   // update user roles
   @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Put(':id/roles')
-  async updateRoles() {}
+  async updateRoles(
+    @Body() data: UpdateUserRolesDto,
+    @Param('id') userId: string,
+  ): Promise<void> {
+    const command: UpdateUserRolesCommand = {
+      userId: userId,
+      roles: data.roles,
+    };
+    await this.usersService.updateUserRoles(command);
+  }
 
   // update users name
   @Roles(Role.ADMIN)
