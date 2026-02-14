@@ -2,15 +2,20 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { plainToInstance } from 'class-transformer';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserResponseDto } from '../dto/user-response.dto';
+import { ChangeUserPasswordCommand } from './commands/change-user-password.command';
 import { CreateUserCommand } from './commands/create-user.command';
 import { GetUserQueryCommand } from './commands/get-user-query.command';
+import { ResetUserPasswordCommand } from './commands/reset-user-password.command';
 import { UpdateUserNameCommand } from './commands/update-user-name.command';
+import { UpdateUserEmailCommand } from './commands/update-user-email.command';
 
 // Define a type that includes the user along with their roles and the role details
 type UserWithRoles = Prisma.UserGetPayload<{
@@ -177,13 +182,81 @@ export class UsersService {
   }
 
   // change password of a user
-  async changeUserPassword() {}
+  async changeUserPassword(command: ChangeUserPasswordCommand) {
+    // search the user
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: command.userId,
+      },
+    });
 
-  // reset password of a user (ADMIN)
-  async resetUserPassword() {}
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    // check if the current password is correct
+    const isValidCredential = await this.verifyPassword(
+      user.passwordHash,
+      command.currentPassword,
+    );
+
+    if (!isValidCredential) {
+      throw new UnauthorizedException('Invalid credentials.');
+    }
+
+    await this.prisma.user.update({
+      where: {
+        id: command.userId,
+      },
+      data: {
+        passwordHash: await this.hashPassword(command.newPassword),
+      },
+    });
+  }
+
+  // reset password of a user
+  async resetUserPassword(command: ResetUserPasswordCommand) {
+    // check if user exists
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: command.userId,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+    await this.prisma.user.update({
+      where: {
+        id: command.userId,
+      },
+      data: {
+        passwordHash: await this.hashPassword(command.newPassword),
+      },
+    });
+  }
 
   // modify email of a user (ADMIN)
-  async updateUserEmail() {}
+  async updateUserEmail(command: UpdateUserEmailCommand) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: command.userId,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    await this.prisma.user.update({
+      where: {
+        id: command.userId,
+      },
+      data: {
+        email: command.newEmail,
+      },
+    });
+  }
 
   // manage user roles (ADMIN)
   async updateUserRoles() {}
