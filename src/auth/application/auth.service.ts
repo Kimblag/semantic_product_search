@@ -12,7 +12,7 @@ export class AuthService {
   ) {}
   async signIn(loginCommand: LoginCommand): Promise<{ accessToken: string }> {
     const { email, password } = loginCommand;
-    const user = await this.userService.findByEmail(email);
+    const user = await this.userService.findUserByEmail(email);
 
     // check the user
     if (!user) {
@@ -20,7 +20,7 @@ export class AuthService {
     }
 
     if (!user.active) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('User is inactive.');
     }
 
     // check the password
