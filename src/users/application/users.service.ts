@@ -3,13 +3,14 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
-import { Prisma, User } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateUserCommand } from './commands/create-user.command';
-import { UserResponseDto } from '../dto/user-response.dto';
 import { plainToInstance } from 'class-transformer';
-import { GetUsersQueryDto } from '../dto/get-user-query.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { UserResponseDto } from '../dto/user-response.dto';
+import { CreateUserCommand } from './commands/create-user.command';
+import { GetUserQueryCommand } from './commands/get-user-query.command';
+import { UpdateUserNameCommand } from './commands/update-user-name.command';
 
 // Define a type that includes the user along with their roles and the role details
 type UserWithRoles = Prisma.UserGetPayload<{
@@ -93,21 +94,21 @@ export class UsersService {
   }
 
   // find all users with their roles and role details
-  async findAllUsers(filters: GetUsersQueryDto): Promise<UserResponseDto[]> {
+  async findAllUsers(command: GetUserQueryCommand): Promise<UserResponseDto[]> {
     const whereClause: Prisma.UserWhereInput = {};
 
-    if (filters.email) {
-      whereClause.email = filters.email;
+    if (command.email) {
+      whereClause.email = command.email;
     }
 
-    if (filters.isActive !== undefined) {
-      whereClause.active = filters.isActive;
+    if (command.isActive !== undefined) {
+      whereClause.active = command.isActive;
     }
 
-    if (filters.roleId) {
+    if (command.roleId) {
       whereClause.roles = {
         some: {
-          rolId: filters.roleId,
+          rolId: command.roleId,
         },
       };
     }
@@ -148,7 +149,7 @@ export class UsersService {
   }
 
   // Find a user by email and include their roles and role details
-  async findByEmail(email: string): Promise<UserWithRoles | null> {
+  async findUserByEmail(email: string): Promise<UserWithRoles | null> {
     return await this.prisma.user.findUnique({
       where: { email },
       include: {
@@ -161,15 +162,31 @@ export class UsersService {
     });
   }
 
-  // update a user: without email
+  // update user name
+  async updateUserName(command: UpdateUserNameCommand): Promise<void> {
+    await this.prisma.user.update({
+      where: {
+        id: command.userId,
+      },
+      data: {
+        name: command.newName,
+      },
+    });
+
+    return;
+  }
 
   // change password of a user
+  async changeUserPassword() {}
 
   // reset password of a user (ADMIN)
+  async resetUserPassword() {}
 
   // modify email of a user (ADMIN)
+  async updateUserEmail() {}
 
   // manage user roles (ADMIN)
+  async updateUserRoles() {}
 
   async hashPassword(password: string): Promise<string> {
     const hashedPassword = await bcrypt.hash(password, 10);
