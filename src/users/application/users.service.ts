@@ -1,21 +1,23 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { plainToInstance } from 'class-transformer';
+
+import appConfig from 'src/config/app.config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserResponseDto } from '../dto/user-response.dto';
-import { ChangeUserPasswordCommand } from './commands/change-user-password.command';
 import { CreateUserCommand } from './commands/create-user.command';
 import { GetUserQueryCommand } from './commands/get-user-query.command';
-import { ResetUserPasswordCommand } from './commands/reset-user-password.command';
-import { UpdateUserNameCommand } from './commands/update-user-name.command';
 import { UpdateUserEmailCommand } from './commands/update-user-email.command';
+import { UpdateUserNameCommand } from './commands/update-user-name.command';
 import { UpdateUserRolesCommand } from './commands/update-user-roles.command';
 
 // Define a type that includes the user along with their roles and the role details
@@ -31,7 +33,11 @@ type UserWithRoles = Prisma.UserGetPayload<{
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(appConfig.KEY)
+    private readonly config: ConfigType<typeof appConfig>,
+  ) {}
 
   /**
    * Creates a new user with associated roles.
@@ -44,11 +50,16 @@ export class UsersService {
    */
   async createUser(command: CreateUserCommand): Promise<UserResponseDto> {
     // check if provided roles exist in the database
-    const rolesCount = await this.prisma.role.count({
-      where: {
-        id: { in: command.roles },
-      },
-    });
+    let rolesCount: number;
+    try {
+      rolesCount = await this.prisma.role.count({
+        where: {
+          id: { in: command.roles },
+        },
+      });
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
 
     if (rolesCount !== command.roles.length) {
       throw new BadRequestException('One or more provided roles are invalid.');
@@ -87,15 +98,16 @@ export class UsersService {
       return userResponseDto;
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new ConflictException('Email already exists');
-        }
+        if (error.code === 'P2002')
+          throw new ConflictException('Resource conflict.');
 
-        if (error.code === 'P2003') {
-          throw new BadRequestException('Invalid foreign key reference');
-        }
+        if (error.code === 'P2003')
+          throw new ConflictException('Invalid reference.');
+
+        if (error.code === 'P2025')
+          throw new NotFoundException('Resource not found.');
       }
-      throw error;
+      throw new InternalServerErrorException('Internal server error.');
     }
   }
 
@@ -119,26 +131,31 @@ export class UsersService {
       };
     }
 
-    const users = await this.prisma.user.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        active: true,
-        createdAt: true,
-        roles: {
-          select: {
-            rol: {
-              select: {
-                id: true,
-                name: true,
+    let users = [];
+    try {
+      users = await this.prisma.user.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          active: true,
+          createdAt: true,
+          roles: {
+            select: {
+              rol: {
+                select: {
+                  id: true,
+                  name: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
 
     let userResponseDtos: UserResponseDto[] = [];
     if (users.length > 0) {
@@ -156,151 +173,140 @@ export class UsersService {
 
   // Find a user by email and include their roles and role details
   async findUserByEmail(email: string): Promise<UserWithRoles | null> {
-    return await this.prisma.user.findUnique({
-      where: { email },
-      include: {
-        roles: {
-          include: {
-            rol: true,
+    try {
+      return await this.prisma.user.findUnique({
+        where: { email },
+        include: {
+          roles: {
+            include: {
+              rol: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  // Find a user by ID and include their roles and role details
+  async findUserById(userId: string): Promise<UserWithRoles | null> {
+    try {
+      return await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          roles: {
+            include: {
+              rol: true,
+            },
+          },
+        },
+      });
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
   }
 
   // update user name
   async updateUserName(command: UpdateUserNameCommand): Promise<void> {
-    await this.prisma.user.update({
-      where: {
-        id: command.userId,
-      },
-      data: {
-        name: command.newName,
-      },
-    });
+    try {
+      await this.prisma.user.update({
+        where: {
+          id: command.userId,
+        },
+        data: {
+          name: command.newName,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException('Resource not found.');
+        }
 
-    return;
-  }
+        if (error.code === 'P2002') {
+          throw new ConflictException('Resource conflict.');
+        }
+      }
 
-  // change password of a user
-  async changeUserPassword(command: ChangeUserPasswordCommand): Promise<void> {
-    // search the user
-    const user = await this.prisma.user.findFirst({
-      where: {
-        id: command.userId,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found.');
+      throw new InternalServerErrorException('Internal server error.');
     }
-
-    // check if the current password is correct
-    const isValidCredential = await this.verifyPassword(
-      user.passwordHash,
-      command.currentPassword,
-    );
-
-    if (!isValidCredential) {
-      throw new UnauthorizedException('Invalid credentials.');
-    }
-
-    await this.prisma.user.update({
-      where: {
-        id: command.userId,
-      },
-      data: {
-        passwordHash: await this.hashPassword(command.newPassword),
-      },
-    });
-  }
-
-  // reset password of a user
-  async resetUserPassword(command: ResetUserPasswordCommand): Promise<void> {
-    // check if user exists
-    const user = await this.prisma.user.findFirst({
-      where: {
-        id: command.userId,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found.');
-    }
-    await this.prisma.user.update({
-      where: {
-        id: command.userId,
-      },
-      data: {
-        passwordHash: await this.hashPassword(command.newPassword),
-      },
-    });
   }
 
   // modify email of a user (ADMIN)
   async updateUserEmail(command: UpdateUserEmailCommand): Promise<void> {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        id: command.userId,
-      },
-    });
+    try {
+      await this.prisma.user.update({
+        where: {
+          id: command.userId,
+        },
+        data: {
+          email: command.newEmail,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException('Resource not found.');
+        }
 
-    if (!user) {
-      throw new NotFoundException('User not found.');
+        if (error.code === 'P2002') {
+          throw new ConflictException('Resource conflict.');
+        }
+      }
+
+      throw new InternalServerErrorException('Internal server error.');
     }
-
-    await this.prisma.user.update({
-      where: {
-        id: command.userId,
-      },
-      data: {
-        email: command.newEmail,
-      },
-    });
   }
 
   // manage user roles (ADMIN)
   async updateUserRoles(command: UpdateUserRolesCommand): Promise<void> {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        id: command.userId,
-      },
-    });
+    const uniqueRoles = [...new Set(command.roles)];
 
-    if (!user) {
-      throw new NotFoundException('User not found.');
-    }
-
-    // check if provided roles exist in the database
     const rolesCount = await this.prisma.role.count({
-      where: {
-        id: { in: command.roles },
-      },
+      where: { id: { in: uniqueRoles } },
     });
 
-    if (rolesCount !== command.roles.length) {
-      throw new BadRequestException('One or more provided roles are invalid.');
+    if (rolesCount !== uniqueRoles.length) {
+      throw new BadRequestException('Invalid input.');
     }
 
-    await this.prisma.user.update({
-      where: { id: command.userId },
-      data: {
-        roles: {
-          // delete all the current roles
-          deleteMany: {},
-          // create the new relations for the new roles
-          create: command.roles.map((roleId) => ({
-            rol: {
-              connect: { id: roleId },
-            },
-          })),
+    try {
+      await this.prisma.user.update({
+        where: { id: command.userId },
+        data: {
+          roles: {
+            // delete all the current roles
+            deleteMany: {},
+            // create the new relations for the new roles
+            create: command.roles.map((roleId) => ({
+              rol: {
+                connect: { id: roleId },
+              },
+            })),
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException('Resource not found.');
+        }
+
+        if (error.code === 'P2003') {
+          throw new ConflictException('Invalid reference.');
+        }
+      }
+
+      throw new InternalServerErrorException('Internal server error.');
+    }
   }
 
   async hashPassword(password: string): Promise<string> {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(
+      password,
+      this.config.security.hashSaltRounds,
+    );
     return hashedPassword;
   }
 
@@ -308,6 +314,25 @@ export class UsersService {
     hashedPassword: string,
     plainPassword: string,
   ): Promise<boolean> {
-    return bcrypt.compare(plainPassword, hashedPassword);
+    try {
+      return bcrypt.compare(plainPassword, hashedPassword);
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    try {
+      await this.prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          passwordHash: await this.hashPassword(newPassword),
+        },
+      });
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
   }
 }

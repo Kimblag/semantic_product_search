@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,12 +10,16 @@ import { Request } from 'express';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import appConfig from 'src/config/app.config';
+import { ConfigType } from '@nestjs/config';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
+    @Inject(appConfig.KEY)
+    private readonly config: ConfigType<typeof appConfig>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -41,9 +46,12 @@ export class AuthGuard implements CanActivate {
 
     // try to verfy the token  with jwt service if the token is valid return true otherwise throw UnauthorizedException
     try {
-      const payload: JwtPayload = await this.jwtService.verifyAsync(token);
+      const payload: JwtPayload = await this.jwtService.verifyAsync(token, {
+        secret: this.config.jwt.secret,
+      });
       request.user = payload;
-    } catch {
+    } catch (error: unknown) {
+      console.error(error);
       throw new UnauthorizedException('Invalid or expired token');
     }
 

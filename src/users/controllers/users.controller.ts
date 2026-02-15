@@ -17,24 +17,18 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
-import { ChangeUserPasswordCommand } from '../application/commands/change-user-password.command';
 import { CreateUserCommand } from '../application/commands/create-user.command';
 import { GetUserQueryCommand } from '../application/commands/get-user-query.command';
-import { ResetUserPasswordCommand } from '../application/commands/reset-user-password.command';
+import { UpdateUserEmailCommand } from '../application/commands/update-user-email.command';
 import { UpdateUserNameCommand } from '../application/commands/update-user-name.command';
+import { UpdateUserRolesCommand } from '../application/commands/update-user-roles.command';
 import { UsersService } from '../application/users.service';
-import {
-  ChangeUserPasswordDto,
-  ResetUserPasswordDto,
-} from '../dto/change-user-password.dto';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { GetUsersQueryDto } from '../dto/get-user-query.dto';
-import { UpdateUserNameDto } from '../dto/update-user-name.dto';
-import { UserResponseDto } from '../dto/user-response.dto';
 import { UpdateUserEmailDto } from '../dto/update-user-email.dto';
-import { UpdateUserEmailCommand } from '../application/commands/update-user-email.command';
+import { UpdateUserNameDto } from '../dto/update-user-name.dto';
 import { UpdateUserRolesDto } from '../dto/update-user-roles.dto';
-import { UpdateUserRolesCommand } from '../application/commands/update-user-roles.command';
+import { UserResponseDto } from '../dto/user-response.dto';
 
 @ApiBearerAuth()
 @Controller('users')
@@ -93,39 +87,6 @@ export class UsersController {
       newName: data.name,
     };
     await this.usersService.updateUserName(command);
-  }
-
-  // change password
-  @Roles(Role.EXECUTIVE)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @Patch('change-password')
-  async changePassword(
-    @Body() data: ChangeUserPasswordDto,
-    @Req() request: Request,
-  ): Promise<void> {
-    const currentUser = request.user;
-    if (!currentUser) throw new UnauthorizedException();
-    const command: ChangeUserPasswordCommand = {
-      userId: currentUser.sub,
-      currentPassword: data.currentPassword,
-      newPassword: data.newPassword,
-    };
-    await this.usersService.changeUserPassword(command);
-  }
-
-  // reset password
-  @Roles(Role.ADMIN)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @Patch(':id/reset-password')
-  async resetPassword(
-    @Body() data: ResetUserPasswordDto,
-    @Param('id') userId: string,
-  ): Promise<void> {
-    const command: ResetUserPasswordCommand = {
-      userId: userId,
-      newPassword: data.newPassword,
-    };
-    await this.usersService.resetUserPassword(command);
   }
 
   // update email
