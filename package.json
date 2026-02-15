@@ -35,6 +35,7 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.14.3",
     "commander": "14.0.3",
+    "joi": "18.0.2",
     "mongoose": "9.2.1",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.1",
@@ -48,7 +49,6 @@
     "@nestjs/testing": "11.0.1",
     "@prisma/client": "6.4.0",
     "@types/bcrypt": "6.0.0",
-    "@types/bcryptjs": "3.0.0",
     "@types/express": "5.0.0",
     "@types/jest": "30.0.0",
     "@types/node": "22.10.7",
@@ -61,7 +61,7 @@
     "prettier": "3.4.2",
     "prisma": "6.4.0",
     "source-map-support": "0.5.21",
-    "supertest": "7.0.0",
+    "supertest": "7.2.2",
     "ts-jest": "29.2.5",
     "ts-loader": "9.5.2",
     "ts-node": "10.9.2",
@@ -85,5 +85,6 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  }
+  },
+  "packageManager": "pnpm@10.29.3+sha512.498e1fb4cca5aa06c1dcf2611e6fafc50972ffe7189998c409e90de74566444298ffe43e6cd2acdc775ba1aa7cc5e092a8b7054c811ba8c5770f84693d33d2dc"
 }
