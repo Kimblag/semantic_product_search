@@ -20,5 +20,7 @@ export default registerAs('app', () => ({
   security: {
     hashSaltRounds: Number(process.env.HASH_SALT_ROUNDS),
     hashSaltRoundsRefresh: Number(process.env.HASH_SALT_ROUNDS_REFRESH),
+    maxFailedAttempts: Number(process.env.MAX_FAILED_ATTEMPTS),
+    lockTime: Number(process.env.LOCK_TIME),
   },
 }));

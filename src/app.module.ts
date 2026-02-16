@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -34,7 +36,17 @@ import { UsersModule } from './users/users.module';
           .min(8)
           .max(15)
           .required(),
+        MAX_FAILED_ATTEMPTS: Joi.number().integer().min(1).max(10).required(),
+        LOCK_TIME: Joi.number().integer().min(60000).max(3600000).required(), // 1 minute to 1 hour
       }),
+    }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000, // miliseconds
+          limit: 10, // max request per ttl
+        },
+      ],
     }),
     MongoModule,
     PrismaModule,
@@ -46,10 +58,14 @@ import { UsersModule } from './users/users.module';
   providers: [
     AppService,
     {
-      provide: 'APP_GUARD',
+      provide: APP_GUARD,
       useClass: AuthGuard,
     },
-    { provide: 'APP_GUARD', useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
