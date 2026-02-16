@@ -15,12 +15,15 @@ import appConfig from 'src/config/app.config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { GetUserQueryCommand } from 'src/users/application/commands/get-user-query.command';
 import { UsersService } from 'src/users/application/users.service';
+import { IsLockedLogin } from '../dto/failed-login-response.dto';
+import { TooManyRequestException } from '../exceptions/too-many-request.exception';
 import { JwtPayloadRefresh } from '../interfaces/jwt-payload-refresh.interface';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { ChangeUserPasswordCommand } from './commands/change-user-password.command';
 import { LoginCommand } from './commands/login.command';
 import { RefreshTokenCommand } from './commands/refresh-token.command';
 import { ResetUserPasswordCommand } from './commands/reset-user-password.command';
+import { FailedLoginService } from './failed-login.service';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +33,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     @Inject(appConfig.KEY)
     private readonly config: ConfigType<typeof appConfig>,
+    private readonly failedLoginService: FailedLoginService,
   ) {}
 
   private getRefreshExpirySeconds(): number {
@@ -132,6 +136,18 @@ export class AuthService {
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const { email, password, ip, ua } = command;
 
+    // check if the user is locked
+    const lockedStatus: IsLockedLogin = this.failedLoginService.isLocked(email);
+
+    if (lockedStatus.locked) {
+      const remainingSeconds: number = lockedStatus.remainingMs
+        ? Math.ceil(lockedStatus.remainingMs / 1000)
+        : 0;
+      throw new TooManyRequestException(
+        `Blocked user login. Try again in ${remainingSeconds} seconds.`,
+      );
+    }
+
     const user = await this.userService.findUserByEmail(email);
 
     // check the user
@@ -145,6 +161,8 @@ export class AuthService {
       password,
     );
     if (!isValid) {
+      // Register failed attempt
+      this.failedLoginService.recordFailure(email);
       throw new UnauthorizedException('Invalid credentials.');
     }
     const userRoles = user.roles.map((r) => r.rol.name);
@@ -153,6 +171,8 @@ export class AuthService {
     const accessToken = await this.generateAccessToken(user.id, userRoles);
     const refreshToken = await this.generateRefreshToken(user.id, ip, ua);
 
+    // reset failed attempts on successful login
+    this.failedLoginService.resetAttempts(email);
     return { accessToken, refreshToken };
   }
 
