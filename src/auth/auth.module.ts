@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from 'src/users/users.module';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './application/auth.service';
+import { FailedLoginService } from './application/failed-login.service';
 
 @Module({
   // register in imports the modules needed like UsersModule and JwtModule.
@@ -21,7 +22,7 @@ import { AuthService } from './application/auth.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, FailedLoginService],
 
   // export JWTModule with the configuration to be used in other modules.
   // We have only a source of truth for the JWT configuration.
