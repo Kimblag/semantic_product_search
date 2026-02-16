@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsString,
   IsUUID,
+  Matches,
   MinLength,
 } from 'class-validator';
 
@@ -17,9 +18,15 @@ export class CreateUserDto {
   )
   email: string;
 
+  // Password must be at least 12 characters long and include uppercase letters,
+  // lowercase letters, numbers, and special characters
   @IsNotEmpty()
   @IsString()
-  @MinLength(8)
+  @MinLength(12)
+  @Matches(/[A-Z]/)
+  @Matches(/[a-z]/)
+  @Matches(/[0-9]/)
+  @Matches(/[^A-Za-z0-9]/)
   password: string;
 
   @IsNotEmpty()
