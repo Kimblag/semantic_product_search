@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -28,6 +29,16 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // source: https://docs.nestjs.com/security/helmet#helmet
+  app.use(helmet());
+
+  // source: https://docs.nestjs.com/security/cors
+  app.enableCors({
+    origin: true, // only dev allows any origin
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    credentials: true,
+  });
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
