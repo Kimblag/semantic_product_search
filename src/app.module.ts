@@ -7,7 +7,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './auth/guards/auth.guard';
-import { ClientsModule } from './clients/clients.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import appConfig from './config/app.config';
 import { MongoModule } from './mongo/mongo.module';
@@ -53,7 +52,6 @@ import { AuditModule } from './audit/audit.module';
     PrismaModule,
     AuthModule,
     UsersModule,
-    ClientsModule,
     AuditModule,
   ],
   controllers: [AppController],
