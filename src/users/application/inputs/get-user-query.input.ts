@@ -1,4 +1,4 @@
-export type GetUserQueryCommand = {
+export type GetUserQueryInput = {
   id?: string;
   email?: string;
   isActive?: boolean;

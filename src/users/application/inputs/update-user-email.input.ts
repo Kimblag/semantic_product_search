@@ -1,4 +1,4 @@
-export type UpdateUserEmailCommand = {
+export type UpdateUserEmailInput = {
   userId: string;
   newEmail: string;
 };

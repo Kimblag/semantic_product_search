@@ -1,4 +1,4 @@
-export type CreateUserCommand = {
+export type CreateUserInput = {
   email: string;
   name: string;
   password: string;
