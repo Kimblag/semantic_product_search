@@ -1,4 +1,4 @@
-export type ResetUserPasswordCommand = {
+export type ResetUserPasswordInput = {
   newPassword: string;
   userId: string;
 };
