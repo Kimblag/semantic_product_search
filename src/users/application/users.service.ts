@@ -11,14 +11,18 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { plainToInstance } from 'class-transformer';
 
+import { AuditService } from 'src/audit/audit.service';
+import { AuditAction } from 'src/audit/enums/audit-action.enum';
 import appConfig from 'src/config/app.config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserResponseDto } from '../dto/user-response.dto';
-import { CreateUserCommand } from './commands/create-user.command';
-import { GetUserQueryCommand } from './commands/get-user-query.command';
-import { UpdateUserEmailCommand } from './commands/update-user-email.command';
-import { UpdateUserNameCommand } from './commands/update-user-name.command';
-import { UpdateUserRolesCommand } from './commands/update-user-roles.command';
+import { CreateUserInput } from './inputs/create-user.input';
+import { DeactivateUserInput } from './inputs/deactivate-user-input';
+import { GetUserQueryInput } from './inputs/get-user-query.input';
+import { ReactivateUserInput } from './inputs/reactivate-user-input';
+import { UpdateUserEmailInput } from './inputs/update-user-email.input';
+import { UpdateUserNameInput } from './inputs/update-user-name.input';
+import { UpdateUserRolesInput } from './inputs/update-user-roles.input';
 
 // Define a type that includes the user along with their roles and the role details
 type UserWithRoles = Prisma.UserGetPayload<{
@@ -37,43 +41,44 @@ export class UsersService {
     private readonly prisma: PrismaService,
     @Inject(appConfig.KEY)
     private readonly config: ConfigType<typeof appConfig>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
    * Creates a new user with associated roles.
    *
-   * @param command - The CreateUserCommand containing user details (email, name, password) and role IDs
+   * @param input - The CreateUserCommand containing user details (email, name, password) and role IDs
    * @returns A promise that resolves to the created user object, excluding passwordHash and updatedAt fields
    * @throws {BadRequestException} If one or more provided role IDs do not exist in the database
    * @throws {ConflictException} If a user with the provided email already exists
    * @throws {Error} For any other database or unexpected errors
    */
-  async createUser(command: CreateUserCommand): Promise<UserResponseDto> {
+  async createUser(input: CreateUserInput): Promise<UserResponseDto> {
     // check if provided roles exist in the database
     let rolesCount: number;
     try {
       rolesCount = await this.prisma.role.count({
         where: {
-          id: { in: command.roles },
+          id: { in: input.roles },
         },
       });
     } catch {
       throw new InternalServerErrorException('Internal server error.');
     }
 
-    if (rolesCount !== command.roles.length) {
+    if (rolesCount !== input.roles.length) {
       throw new BadRequestException('One or more provided roles are invalid.');
     }
 
     try {
       const user = await this.prisma.user.create({
         data: {
-          email: command.email,
-          name: command.name,
-          passwordHash: await this.hashPassword(command.password),
+          email: input.email,
+          name: input.name,
+          passwordHash: await this.hashPassword(input.password),
 
           roles: {
-            create: command.roles.map((roleId) => ({
+            create: input.roles.map((roleId) => ({
               rol: {
                 connect: { id: roleId },
               },
@@ -112,21 +117,21 @@ export class UsersService {
   }
 
   // find all users with their roles and role details
-  async findAllUsers(command: GetUserQueryCommand): Promise<UserResponseDto[]> {
+  async findAllUsers(input: GetUserQueryInput): Promise<UserResponseDto[]> {
     const whereClause: Prisma.UserWhereInput = {};
 
-    if (command.email) {
-      whereClause.email = command.email;
+    if (input.email) {
+      whereClause.email = input.email;
     }
 
-    if (command.isActive !== undefined) {
-      whereClause.active = command.isActive;
+    if (input.isActive !== undefined) {
+      whereClause.active = input.isActive;
     }
 
-    if (command.roleId) {
+    if (input.roleId) {
       whereClause.roles = {
         some: {
-          rolId: command.roleId,
+          rolId: input.roleId,
         },
       };
     }
@@ -208,14 +213,14 @@ export class UsersService {
   }
 
   // update user name
-  async updateUserName(command: UpdateUserNameCommand): Promise<void> {
+  async updateUserName(input: UpdateUserNameInput): Promise<void> {
     try {
       await this.prisma.user.update({
         where: {
-          id: command.userId,
+          id: input.userId,
         },
         data: {
-          name: command.newName,
+          name: input.newName,
         },
       });
     } catch (error) {
@@ -234,14 +239,14 @@ export class UsersService {
   }
 
   // modify email of a user (ADMIN)
-  async updateUserEmail(command: UpdateUserEmailCommand): Promise<void> {
+  async updateUserEmail(input: UpdateUserEmailInput): Promise<void> {
     try {
       await this.prisma.user.update({
         where: {
-          id: command.userId,
+          id: input.userId,
         },
         data: {
-          email: command.newEmail,
+          email: input.newEmail,
         },
       });
     } catch (error) {
@@ -257,11 +262,19 @@ export class UsersService {
 
       throw new InternalServerErrorException('Internal server error.');
     }
+
+    await this.auditService.log({
+      action: AuditAction.EMAIL_UPDATED,
+      userId: input.userId,
+      metadata: {
+        newEmail: input.newEmail,
+      },
+    });
   }
 
   // manage user roles (ADMIN)
-  async updateUserRoles(command: UpdateUserRolesCommand): Promise<void> {
-    const uniqueRoles = [...new Set(command.roles)];
+  async updateUserRoles(input: UpdateUserRolesInput): Promise<void> {
+    const uniqueRoles = [...new Set(input.roles)];
 
     const rolesCount = await this.prisma.role.count({
       where: { id: { in: uniqueRoles } },
@@ -273,18 +286,25 @@ export class UsersService {
 
     try {
       await this.prisma.user.update({
-        where: { id: command.userId },
+        where: { id: input.userId },
         data: {
           roles: {
             // delete all the current roles
             deleteMany: {},
             // create the new relations for the new roles
-            create: command.roles.map((roleId) => ({
+            create: input.roles.map((roleId) => ({
               rol: {
                 connect: { id: roleId },
               },
             })),
           },
+        },
+      });
+      await this.auditService.log({
+        action: AuditAction.ROLES_UPDATED,
+        userId: input.userId,
+        metadata: {
+          newRoles: input.roles,
         },
       });
     } catch (error) {
@@ -302,6 +322,74 @@ export class UsersService {
     }
   }
 
+  // Deactivate user account (ADMIN)
+  async deactivateUser(input: DeactivateUserInput): Promise<void> {
+    try {
+      await this.prisma.user.update({
+        where: {
+          id: input.userId,
+        },
+        data: {
+          active: false,
+        },
+      });
+
+      await this.auditService.log({
+        action: AuditAction.USER_DEACTIVATED,
+        userId: input.userId,
+        metadata: {
+          deactivatedByUserId: input.deactivatedBy,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException('Resource not found.');
+        }
+
+        if (error.code === 'P2003') {
+          throw new ConflictException('Invalid reference.');
+        }
+      }
+
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  async reactivateUser(input: ReactivateUserInput): Promise<void> {
+    try {
+      await this.prisma.user.update({
+        where: {
+          id: input.userId,
+        },
+        data: {
+          active: false,
+        },
+      });
+
+      await this.auditService.log({
+        action: AuditAction.USER_REACTIVATED,
+        userId: input.userId,
+        metadata: {
+          reactivatedByUserId: input.reactivatedBy,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException('Resource not found.');
+        }
+
+        if (error.code === 'P2003') {
+          throw new ConflictException('Invalid reference.');
+        }
+      }
+
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  /* helper methods for password hashing and verification */
   async hashPassword(password: string): Promise<string> {
     const hashedPassword = await bcrypt.hash(
       password,

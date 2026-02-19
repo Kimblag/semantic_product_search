@@ -13,6 +13,7 @@ import appConfig from './config/app.config';
 import { MongoModule } from './mongo/mongo.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     ClientsModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [

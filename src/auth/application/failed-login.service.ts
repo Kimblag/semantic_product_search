@@ -1,14 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { FailedAttempt } from '../interfaces/failed-login.interface';
-import { IsLockedLogin } from '../dto/failed-login-response.dto';
 import { ConfigType } from '@nestjs/config';
+import { AuditService } from 'src/audit/audit.service';
 import appConfig from 'src/config/app.config';
+import { IsLockedLogin } from '../dto/failed-login-response.dto';
+import { FailedAttempt } from '../interfaces/failed-login.interface';
 
 @Injectable()
 export class FailedLoginService {
   constructor(
     @Inject(appConfig.KEY)
     private readonly config: ConfigType<typeof appConfig>,
+    private readonly auditService: AuditService,
   ) {}
   private attempts: Map<string, FailedAttempt> = new Map();
 
@@ -17,7 +19,10 @@ export class FailedLoginService {
 
   recordFailure(email: string): void {
     const now = Date.now();
-    const attempt = this.attempts.get(email) || { count: 0, lastAttempt: now };
+    const attempt: FailedAttempt = this.attempts.get(email) || {
+      count: 0,
+      lastAttempt: now,
+    };
     attempt.count++;
     attempt.lastAttempt = now;
 

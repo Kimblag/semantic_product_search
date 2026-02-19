@@ -5,6 +5,7 @@ import { UsersModule } from 'src/users/users.module';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './application/auth.service';
 import { FailedLoginService } from './application/failed-login.service';
+import { AuditModule } from 'src/audit/audit.module';
 
 @Module({
   // register in imports the modules needed like UsersModule and JwtModule.
@@ -12,6 +13,7 @@ import { FailedLoginService } from './application/failed-login.service';
   // factories to get the configuration values from ConfigService.
   imports: [
     UsersModule,
+    AuditModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
