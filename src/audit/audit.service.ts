@@ -24,7 +24,7 @@ export class AuditService {
         ...(command.metadata && { metadata: command.metadata }),
       });
     } catch (error) {
-      this.logger.error('Failed to log audit event', error);
+      this.logger.error('[AUDIT_SERVICE]: Failed to log audit event', error);
     }
   }
 }

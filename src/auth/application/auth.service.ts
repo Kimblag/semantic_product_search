@@ -143,7 +143,7 @@ export class AuthService {
     // check if the user is locked
     await this.checkAccountLockStatus(email, ip, ua);
 
-    const user = await this.userService.findUserByEmail(email);
+    const user = await this.userService.findUserAuthByEmail(email);
 
     // check the user
     if (!user || !user.active) {
@@ -262,7 +262,7 @@ export class AuthService {
     const userQueryCommand: GetUserQueryInput = {
       id: tokenRecord.userId,
     };
-    const user = await this.userService.findUserById(userQueryCommand.id);
+    const user = await this.userService.findUserAuthById(userQueryCommand.id);
 
     if (!user || !user.active) {
       throw new UnauthorizedException('Invalid refresh token.');
@@ -388,7 +388,7 @@ export class AuthService {
   // change password of a user
   async changeUserPassword(input: ChangeUserPasswordInput): Promise<void> {
     // search the user
-    const user = await this.userService.findUserById(input.userId);
+    const user = await this.userService.findUserAuthById(input.userId);
 
     if (!user) {
       throw new NotFoundException('User not found.');
@@ -419,7 +419,7 @@ export class AuthService {
   // reset password of a user
   async resetUserPassword(input: ResetUserPasswordInput): Promise<void> {
     // check if user exists
-    const user = await this.userService.findUserById(input.userId);
+    const user = await this.userService.findUserAuthById(input.userId);
 
     if (!user) {
       throw new NotFoundException('User not found.');
