@@ -177,7 +177,7 @@ export class UsersService {
   }
 
   // Find a user by email and include their roles and role details
-  async findUserByEmail(email: string): Promise<UserWithRoles | null> {
+  async findUserAuthByEmail(email: string): Promise<UserWithRoles | null> {
     try {
       return await this.prisma.user.findUnique({
         where: { email },
@@ -195,7 +195,7 @@ export class UsersService {
   }
 
   // Find a user by ID and include their roles and role details
-  async findUserById(userId: string): Promise<UserWithRoles | null> {
+  async findUserAuthById(userId: string): Promise<UserWithRoles | null> {
     try {
       return await this.prisma.user.findUnique({
         where: { id: userId },
@@ -206,6 +206,29 @@ export class UsersService {
             },
           },
         },
+      });
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  async findUserById(userId: string): Promise<UserResponseDto | null> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          roles: {
+            include: {
+              rol: true,
+            },
+          },
+        },
+      });
+      if (!user) {
+        return null;
+      }
+      return plainToInstance(UserResponseDto, user, {
+        excludeExtraneousValues: true,
       });
     } catch {
       throw new InternalServerErrorException('Internal server error.');
@@ -300,13 +323,6 @@ export class UsersService {
           },
         },
       });
-      await this.auditService.log({
-        action: AuditAction.ROLES_UPDATED,
-        userId: input.userId,
-        metadata: {
-          newRoles: input.roles,
-        },
-      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -320,6 +336,14 @@ export class UsersService {
 
       throw new InternalServerErrorException('Internal server error.');
     }
+
+    await this.auditService.log({
+      action: AuditAction.ROLES_UPDATED,
+      userId: input.userId,
+      metadata: {
+        newRoles: input.roles,
+      },
+    });
   }
 
   // Deactivate user account (ADMIN)
@@ -363,7 +387,7 @@ export class UsersService {
           id: input.userId,
         },
         data: {
-          active: false,
+          active: true,
         },
       });
 
@@ -391,11 +415,11 @@ export class UsersService {
 
   /* helper methods for password hashing and verification */
   async hashPassword(password: string): Promise<string> {
-    const hashedPassword = await bcrypt.hash(
-      password,
-      this.config.security.hashSaltRounds,
-    );
-    return hashedPassword;
+    try {
+      return await bcrypt.hash(password, this.config.security.hashSaltRounds);
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
   }
 
   async verifyPassword(
@@ -403,7 +427,7 @@ export class UsersService {
     plainPassword: string,
   ): Promise<boolean> {
     try {
-      return bcrypt.compare(plainPassword, hashedPassword);
+      return await bcrypt.compare(plainPassword, hashedPassword);
     } catch {
       throw new InternalServerErrorException('Internal server error.');
     }

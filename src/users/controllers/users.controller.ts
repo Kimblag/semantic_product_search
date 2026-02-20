@@ -15,8 +15,15 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
+import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { DeactivateUserInput } from '../application/inputs/deactivate-user-input';
+import { GetUserQueryInput } from '../application/inputs/get-user-query.input';
+import { ReactivateUserInput } from '../application/inputs/reactivate-user-input';
+import { UpdateUserEmailInput } from '../application/inputs/update-user-email.input';
+import { UpdateUserNameInput } from '../application/inputs/update-user-name.input';
+import { UpdateUserRolesInput } from '../application/inputs/update-user-roles.input';
 import { UsersService } from '../application/users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { GetUsersQueryDto } from '../dto/get-user-query.dto';
@@ -24,14 +31,6 @@ import { UpdateUserEmailDto } from '../dto/update-user-email.dto';
 import { UpdateUserNameDto } from '../dto/update-user-name.dto';
 import { UpdateUserRolesDto } from '../dto/update-user-roles.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
-import { CreateUserInput } from '../application/inputs/create-user.input';
-import { GetUserQueryInput } from '../application/inputs/get-user-query.input';
-import { UpdateUserNameInput } from '../application/inputs/update-user-name.input';
-import { UpdateUserEmailInput } from '../application/inputs/update-user-email.input';
-import { UpdateUserRolesInput } from '../application/inputs/update-user-roles.input';
-import { DeactivateUserInput } from '../application/inputs/deactivate-user-input';
-import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
-import { ReactivateUserInput } from '../application/inputs/reactivate-user-input';
 
 @ApiBearerAuth()
 @Controller('users')
@@ -41,22 +40,24 @@ export class UsersController {
   // create user
   @Roles(Role.ADMIN)
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async create(
-    @Body() userData: CreateUserDto,
-    @Res() res: Response,
-  ): Promise<Response> {
-    const input: CreateUserInput = {
-      email: userData.email,
-      name: userData.name,
-      password: userData.password,
-      roles: userData.roles,
-    };
+    @Body() dto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<UserResponseDto> {
+    const user = await this.usersService.createUser(dto);
 
-    const user: UserResponseDto = await this.usersService.createUser(input);
-    return res
-      .status(HttpStatus.CREATED)
-      .location(`/users/${user.id}`)
-      .json(user);
+    res.setHeader('Location', `/users/${user.id}`);
+
+    return user;
+  }
+
+  // list users
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Get(':id')
+  async findOne(@Param('id') userId: string): Promise<UserResponseDto> {
+    return this.usersService.findUserById(userId);
   }
 
   // list users
@@ -132,7 +133,7 @@ export class UsersController {
   // update users name
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Patch(':id')
+  @Patch(':id/name')
   async update(
     @Body() data: UpdateUserNameDto,
     @Param('id') userId: string,
@@ -152,7 +153,7 @@ export class UsersController {
   // deactivate user
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Patch(':id')
+  @Patch(':id/deactivate')
   async deactivateUser(@Param('id') userId: string, @Req() request: Request) {
     const currentUser: JwtPayload = request.user;
     if (!currentUser) throw new UnauthorizedException();
@@ -167,7 +168,7 @@ export class UsersController {
   // reactivate user
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Patch(':id')
+  @Patch(':id/reactivate')
   async reactivateUser(@Param('id') userId: string, @Req() request: Request) {
     const currentUser: JwtPayload = request.user;
     if (!currentUser) throw new UnauthorizedException();
