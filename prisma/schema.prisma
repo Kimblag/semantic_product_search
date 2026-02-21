@@ -75,7 +75,7 @@ model RolPermission {
 model Client {
   id        String   @id @default(uuid())
   name      String
-  email     String @unique
+  email     String   @unique
   telephone String
   address   String
   active    Boolean  @default(true)
@@ -89,7 +89,7 @@ model Provider {
   id        String   @id @default(uuid())
   code      String   @unique
   name      String
-  email     String @unique
+  email     String
   telephone String
   address   String
   active    Boolean  @default(true)
