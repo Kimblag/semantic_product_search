@@ -10,8 +10,9 @@ export class GetClientQueryDto {
   @IsString()
   name?: string;
 
+  // add a default value of true for isActive
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => value === 'true' || value === true)
-  isActive?: boolean;
+  isActive?: boolean = true;
 }
