@@ -13,5 +13,5 @@ export class GetUsersQueryDto {
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
-  isActive?: boolean;
+  isActive?: boolean = true;
 }
