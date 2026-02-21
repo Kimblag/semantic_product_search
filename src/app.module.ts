@@ -13,6 +13,7 @@ import { MongoModule } from './mongo/mongo.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 import { AuditModule } from './audit/audit.module';
+import { ClientsModule } from './clients/clients.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { AuditModule } from './audit/audit.module';
     AuthModule,
     UsersModule,
     AuditModule,
+    ClientsModule,
   ],
   controllers: [AppController],
   providers: [
