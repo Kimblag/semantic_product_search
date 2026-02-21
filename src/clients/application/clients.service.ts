@@ -46,14 +46,24 @@ export class ClientsService {
   async findAllClients(
     input: GetClientsQueryInput,
   ): Promise<ClientResponseDto[]> {
-    const whereClause: Prisma.ClientWhereInput = {};
+    let whereClause: Prisma.ClientWhereInput = {};
 
     if (input.name) {
-      whereClause.name = input.name;
+      whereClause = {
+        ...whereClause,
+        name: {
+          contains: input.name,
+        },
+      };
     }
 
     if (input.email) {
-      whereClause.email = input.email;
+      whereClause = {
+        ...whereClause,
+        email: {
+          contains: input.email,
+        },
+      };
     }
 
     if (input.active !== undefined) {
