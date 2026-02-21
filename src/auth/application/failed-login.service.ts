@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { AuditService } from 'src/audit/audit.service';
 import appConfig from 'src/config/app.config';
-import { IsLockedLogin } from '../dto/failed-login-response.dto';
+import { IsLockedLogin } from '../dtos/failed-login-response.dto';
 import { FailedAttempt } from '../interfaces/failed-login.interface';
 
 @Injectable()

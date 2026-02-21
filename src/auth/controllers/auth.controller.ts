@@ -22,9 +22,9 @@ import { Public } from '../decorators/public.decorator';
 import {
   ChangeUserPasswordDto,
   ResetUserPasswordDto,
-} from '../dto/change-user-password.dto';
-import { LoginDto } from '../dto/login.dto';
-import { RefreshTokenDto } from '../dto/refresh-token.dto';
+} from '../dtos/change-user-password.dto';
+import { LoginDto } from '../dtos/login.dto';
+import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 @Controller('auth')

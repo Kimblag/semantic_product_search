@@ -25,12 +25,12 @@ import { UpdateUserEmailInput } from '../application/inputs/update-user-email.in
 import { UpdateUserNameInput } from '../application/inputs/update-user-name.input';
 import { UpdateUserRolesInput } from '../application/inputs/update-user-roles.input';
 import { UsersService } from '../application/users.service';
-import { CreateUserDto } from '../dto/create-user.dto';
-import { GetUsersQueryDto } from '../dto/get-user-query.dto';
-import { UpdateUserEmailDto } from '../dto/update-user-email.dto';
-import { UpdateUserNameDto } from '../dto/update-user-name.dto';
-import { UpdateUserRolesDto } from '../dto/update-user-roles.dto';
-import { UserResponseDto } from '../dto/user-response.dto';
+import { CreateUserDto } from '../dtos/create-user.dto';
+import { GetUsersQueryDto } from '../dtos/get-user-query.dto';
+import { UpdateUserEmailDto } from '../dtos/update-user-email.dto';
+import { UpdateUserNameDto } from '../dtos/update-user-name.dto';
+import { UpdateUserRolesDto } from '../dtos/update-user-roles.dto';
+import { UserResponseDto } from '../dtos/user-response.dto';
 
 @ApiBearerAuth()
 @Controller('users')

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { UserResponseDto } from '../dto/user-response.dto';
+import { UserResponseDto } from '../dtos/user-response.dto';
 import { UsersService } from '../application/users.service';
 import type { Request, Response } from 'express';
 

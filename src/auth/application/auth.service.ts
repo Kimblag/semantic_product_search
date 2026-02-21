@@ -14,7 +14,7 @@ import * as ms from 'ms';
 import appConfig from 'src/config/app.config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/application/users.service';
-import { IsLockedLogin } from '../dto/failed-login-response.dto';
+import { IsLockedLogin } from '../dtos/failed-login-response.dto';
 import { TooManyRequestException } from '../exceptions/too-many-request.exception';
 import { JwtPayloadRefresh } from '../interfaces/jwt-payload-refresh.interface';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';

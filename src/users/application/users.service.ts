@@ -15,7 +15,7 @@ import { AuditService } from 'src/audit/audit.service';
 import { AuditAction } from 'src/audit/enums/audit-action.enum';
 import appConfig from 'src/config/app.config';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { UserResponseDto } from '../dto/user-response.dto';
+import { UserResponseDto } from '../dtos/user-response.dto';
 import { CreateUserInput } from './inputs/create-user.input';
 import { DeactivateUserInput } from './inputs/deactivate-user-input';
 import { GetUserQueryInput } from './inputs/get-user-query.input';

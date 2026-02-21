@@ -15,10 +15,10 @@ import { Response } from 'express';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
 import { ClientsService } from '../application/clients.service';
-import { CreateClientDto } from '../dto/client-create.dto';
-import { ClientResponseDto } from '../dto/client-response.dto';
-import { GetClientQueryDto } from '../dto/get-client-query.dto';
-import { UpdateClientDto } from '../dto/update-client.dto';
+import { CreateClientDto } from '../dtos/client-create.dto';
+import { ClientResponseDto } from '../dtos/client-response.dto';
+import { GetClientQueryDto } from '../dtos/get-client-query.dto';
+import { UpdateClientDto } from '../dtos/update-client.dto';
 
 @ApiBearerAuth()
 @Controller('clients')

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClientsController } from './clients.controller';
-import { ClientResponseDto } from '../dto/client-response.dto';
+import { ClientResponseDto } from '../dtos/client-response.dto';
 import { ClientsService } from '../application/clients.service';
 import { Response } from 'express';
 
