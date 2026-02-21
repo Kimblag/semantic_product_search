@@ -7,6 +7,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { CreateClientInput } from './inputs/create-client.input';
 
 /* Mock factories */
 const createPrismaServiceMock = () => ({
@@ -39,6 +40,16 @@ const mockClientSelected = {
   createdAt: new Date('2026-01-01'),
 };
 
+const SELECTED_FIELDS = {
+  id: true,
+  name: true,
+  email: true,
+  address: true,
+  telephone: true,
+  active: true,
+  createdAt: true,
+};
+
 describe('ClientsService', () => {
   let service: ClientsService;
   let prismaService: ReturnType<typeof createPrismaServiceMock>;
@@ -65,7 +76,7 @@ describe('ClientsService', () => {
   });
 
   describe('createClient', () => {
-    const input = {
+    const input: CreateClientInput = {
       name: 'Client A',
       email: 'client.a@example.com',
       address: '123 Main St',
@@ -76,16 +87,12 @@ describe('ClientsService', () => {
       prismaService.client.create.mockResolvedValue(mockClientSelected);
 
       const result = await service.createClient(input);
-
       expect(prismaService.client.create).toHaveBeenCalledWith({
         data: input,
+        select: SELECTED_FIELDS,
       });
 
-      expect(result).toMatchObject({
-        id: CLIENT_ID,
-        name: input.name,
-        email: input.email,
-      });
+      expect({ ...result }).toMatchObject(mockClientSelected);
     });
 
     it('should throw ConflictException on P2002', async () => {
@@ -118,7 +125,7 @@ describe('ClientsService', () => {
       expect(prismaService.client.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            name: 'Client A',
+            name: { contains: 'Client A' },
             active: true,
           },
         }),

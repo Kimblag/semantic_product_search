@@ -4,11 +4,10 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateClientInput } from './inputs/create-client.input';
 import { Prisma } from '@prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { ClientResponseDto } from '../dtos/client-response.dto';
-import { plainToInstance } from 'class-transformer';
+import { CreateClientInput } from './inputs/create-client.input';
 import { GetClientsQueryInput } from './inputs/get-clients-query.input';
 import { UpdateClientInput } from './inputs/update-client.input';
 
@@ -19,16 +18,22 @@ export class ClientsService {
   // create client
   async createClient(input: CreateClientInput): Promise<ClientResponseDto> {
     try {
-      const client = await this.prisma.client.create({
+      return await this.prisma.client.create({
         data: {
           name: input.name,
           email: input.email,
           address: input.address,
           telephone: input.telephone,
         },
-      });
-      return plainToInstance(ClientResponseDto, client, {
-        excludeExtraneousValues: true,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          address: true,
+          telephone: true,
+          active: true,
+          createdAt: true,
+        },
       });
     } catch (error: unknown) {
       // errors by prisma:

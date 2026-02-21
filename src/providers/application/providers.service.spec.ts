@@ -1,12 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ProvidersService } from './providers.service';
 import {
   ConflictException,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ProvidersService } from './providers.service';
 
 const createPrismaMock = () => ({
   provider: {
@@ -155,7 +155,11 @@ describe('ProvidersService', () => {
       await service.findAllProviders({ email: 'provider@test.com' });
 
       expect(prisma.provider.findMany).toHaveBeenCalledWith({
-        where: { email: 'provider@test.com' },
+        where: {
+          email: {
+            contains: 'provider@test.com',
+          },
+        },
         select: SELECTED_FIELDS,
       });
     });
@@ -166,7 +170,7 @@ describe('ProvidersService', () => {
       await service.findAllProviders({ name: 'Provider Name' });
 
       expect(prisma.provider.findMany).toHaveBeenCalledWith({
-        where: { name: 'Provider Name' },
+        where: { name: { contains: 'Provider Name' } },
         select: SELECTED_FIELDS,
       });
     });
@@ -195,8 +199,8 @@ describe('ProvidersService', () => {
       expect(prisma.provider.findMany).toHaveBeenCalledWith({
         where: {
           code: 'PRV001',
-          email: 'provider@test.com',
-          name: 'Provider Name',
+          email: { contains: 'provider@test.com' },
+          name: { contains: 'Provider Name' },
           active: false,
         },
         select: SELECTED_FIELDS,
