@@ -1,4 +1,3 @@
-import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class UpdateClientDto {
@@ -20,6 +19,5 @@ export class UpdateClientDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
   isActive?: boolean;
 }

@@ -1,5 +1,5 @@
 export type GetClientsQueryInput = {
-  name?: string;
-  email?: string;
+  name?: string | undefined;
+  email?: string | undefined;
   active?: boolean;
 };

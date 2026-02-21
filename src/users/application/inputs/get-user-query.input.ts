@@ -1,6 +1,6 @@
 export type GetUserQueryInput = {
-  id?: string;
-  email?: string;
+  id?: string | undefined;
+  email?: string | undefined;
   isActive?: boolean;
-  roleId?: string;
+  roleId?: string | undefined;
 };

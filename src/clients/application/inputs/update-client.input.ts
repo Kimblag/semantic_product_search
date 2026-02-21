@@ -1,8 +1,8 @@
 export type UpdateClientInput = {
   id: string;
-  name?: string;
-  email?: string;
-  address?: string;
-  telephone?: string;
-  isActive?: boolean;
+  name?: string | undefined;
+  email?: string | undefined;
+  address?: string | undefined;
+  telephone?: string | undefined;
+  isActive?: boolean | undefined;
 };

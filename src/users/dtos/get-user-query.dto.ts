@@ -1,4 +1,3 @@
-import { Transform } from 'class-transformer';
 import { IsBoolean, IsEmail, IsOptional, IsUUID } from 'class-validator';
 
 export class GetUsersQueryDto {
@@ -11,7 +10,6 @@ export class GetUsersQueryDto {
   roleId?: string;
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isActive?: boolean = true;
 }
