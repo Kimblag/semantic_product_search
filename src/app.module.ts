@@ -15,6 +15,7 @@ import { UsersModule } from './users/users.module';
 import { AuditModule } from './audit/audit.module';
 import { ClientsModule } from './clients/clients.module';
 import { ProvidersModule } from './providers/providers.module';
+import { RolesModule } from './roles/roles.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { ProvidersModule } from './providers/providers.module';
     AuditModule,
     ClientsModule,
     ProvidersModule,
+    RolesModule,
   ],
   controllers: [AppController],
   providers: [
