@@ -5,17 +5,21 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './auth/guards/auth.guard';
+import { ClientsModule } from './clients/clients.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import appConfig from './config/app.config';
+import { CsvModule } from './csv/csv.module';
+import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { MongoModule } from './mongo/mongo.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { UsersModule } from './users/users.module';
-import { AuditModule } from './audit/audit.module';
-import { ClientsModule } from './clients/clients.module';
 import { ProvidersModule } from './providers/providers.module';
 import { RolesModule } from './roles/roles.module';
+import { UsersModule } from './users/users.module';
+import { VectorDbModule } from './vector-db/vector-db.module';
+import { UploadsModule } from './storage/uploads/uploads.module';
 
 @Module({
   imports: [
@@ -41,6 +45,12 @@ import { RolesModule } from './roles/roles.module';
           .required(),
         MAX_FAILED_ATTEMPTS: Joi.number().integer().min(1).max(10).required(),
         LOCK_TIME: Joi.number().integer().min(60000).max(3600000).required(), // 1 minute to 1 hour
+        PINECONE_API_KEY: Joi.string().required(),
+        PINECONE_REGION: Joi.string().required(),
+        PINECONE_INDEX_NAME: Joi.string().required(),
+        PINECONE_CLOUD: Joi.string().required(),
+        EMBEDDINGS_MODEL: Joi.string().required(),
+        OPENAI_API_KEY: Joi.string().required(),
       }),
     }),
     ThrottlerModule.forRoot({
@@ -59,6 +69,10 @@ import { RolesModule } from './roles/roles.module';
     ClientsModule,
     ProvidersModule,
     RolesModule,
+    VectorDbModule,
+    EmbeddingsModule,
+    CsvModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [

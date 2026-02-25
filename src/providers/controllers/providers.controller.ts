@@ -8,22 +8,36 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ProvidersService } from '../application/providers.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
+import { Request, Response } from 'express';
+import * as multer from 'multer';
+import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { UploadSubdir } from 'src/storage/uploads/enums/upload-subdir.enum';
+import { UploadsService } from 'src/storage/uploads/uploads.service';
+import { ProvidersCatalogService } from '../application/providers-catalog.service';
+import { ProvidersService } from '../application/providers.service';
 import { CreateProviderDto } from '../dtos/create-provider.dto';
-import { Response } from 'express';
-import { ProviderResponseDto } from '../dtos/provider-response.dto';
 import { GetProviderQueryDto } from '../dtos/get-provider-query.dto';
+import { ProviderResponseDto } from '../dtos/provider-response.dto';
 import { UpdateProviderDto } from '../dtos/update-provider.dto';
+import { ProviderCatalogFilePipe } from './pipes/provider-catalog-file.pipe';
 
 @ApiBearerAuth()
 @Controller('providers')
 export class ProvidersController {
-  constructor(private readonly providersService: ProvidersService) {}
+  constructor(
+    private readonly providersService: ProvidersService,
+    private readonly providersCatalogService: ProvidersCatalogService,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   // create provider
   @Roles(Role.ADMIN)
@@ -81,5 +95,54 @@ export class ProvidersController {
       address: dto.address,
       active: dto.active,
     });
+  }
+
+  // upload catalog
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post(':id/catalog')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+    required: true,
+  })
+  // use memory storage to avoid saving invalid files to disk before processing
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: multer.memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  uploadCatalog(
+    @UploadedFile(new ProviderCatalogFilePipe())
+    file: Express.Multer.File,
+    @Param('id') providerId: string,
+    @Req() request: Request,
+  ) {
+    const currentUser: JwtPayload = request.user;
+    // ensure the uploads/providers directory exists
+    const filePath = this.uploadsService.saveBuffer(
+      UploadSubdir.PROVIDERS,
+      file.originalname,
+      file.buffer,
+      providerId,
+    );
+    void this.providersCatalogService.processCatalog({
+      providerId,
+      filePath,
+      uploaderUserId: currentUser.sub, // pass the user that is uploading
+    });
+
+    return;
   }
 }
