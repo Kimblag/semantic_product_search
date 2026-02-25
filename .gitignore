@@ -69,3 +69,6 @@ Thumbs.db
 # NestJS & TypeScript
 *.tsbuildinfo
 *.js.map
+
+# Uploaded files
+uploads/
