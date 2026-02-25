@@ -23,4 +23,14 @@ export default registerAs('app', () => ({
     maxFailedAttempts: Number(process.env.MAX_FAILED_ATTEMPTS),
     lockTime: Number(process.env.LOCK_TIME),
   },
+  vectorDb: {
+    apiKey: process.env.PINECONE_API_KEY,
+    region: process.env.PINECONE_REGION,
+    indexName: process.env.PINECONE_INDEX_NAME,
+    cloud: process.env.PINECONE_CLOUD,
+  },
+  embeddings: {
+    model: process.env.EMBEDDINGS_MODEL,
+    apiKey: process.env.OPENAI_API_KEY,
+  },
 }));
