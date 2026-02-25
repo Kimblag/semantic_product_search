@@ -313,9 +313,11 @@ export class UsersService {
         data: {
           roles: {
             // delete all the current roles
-            deleteMany: {},
+            deleteMany: {
+              userId: input.userId,
+            },
             // create the new relations for the new roles
-            create: input.roles.map((roleId) => ({
+            create: uniqueRoles.map((roleId) => ({
               rol: {
                 connect: { id: roleId },
               },
@@ -341,7 +343,7 @@ export class UsersService {
       action: AuditAction.ROLES_UPDATED,
       userId: input.userId,
       metadata: {
-        newRoles: input.roles,
+        newRoles: uniqueRoles,
       },
     });
   }
