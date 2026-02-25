@@ -19,6 +19,13 @@ enum RequirementStatus {
   ERROR
 }
 
+enum CatalogVersionStatus {
+  PROCESSING
+  ACTIVE
+  FAILED
+  ARCHIVED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -85,16 +92,30 @@ model Client {
   requirements Requirement[]
 }
 
+model CatalogProviderVersion {
+  id            String               @id @default(uuid())
+  provider      Provider             @relation(fields: [providerId], references: [id])
+  providerId    String
+  versionNumber Int
+  originalFile  String
+  status        CatalogVersionStatus @default(PROCESSING)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@unique([providerId, versionNumber])
+}
+
 model Provider {
-  id        String   @id @default(uuid())
-  code      String   @unique
-  name      String
-  email     String
-  telephone String
-  address   String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                      String                   @id @default(uuid())
+  code                    String                   @unique
+  name                    String
+  email                   String
+  telephone               String
+  address                 String
+  active                  Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  catalogProviderVersions CatalogProviderVersion[]
 }
 
 model Requirement {
