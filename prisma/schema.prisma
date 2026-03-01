@@ -14,7 +14,7 @@ datasource db {
 }
 
 enum RequirementStatus {
-  PENDING
+  PROCESSING
   PROCESSED
   ERROR
 }
@@ -125,7 +125,7 @@ model Requirement {
   user         User              @relation(fields: [userId], references: [id])
   userId       String
   originalFile String
-  status       RequirementStatus @default(PENDING)
+  status       RequirementStatus @default(PROCESSING)
   comments     String?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
