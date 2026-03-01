@@ -20,6 +20,9 @@ import { RolesModule } from './roles/roles.module';
 import { UsersModule } from './users/users.module';
 import { VectorDbModule } from './vector-db/vector-db.module';
 import { UploadsModule } from './storage/uploads/uploads.module';
+import { RequirementsModule } from './requirements/requirements.module';
+import { MatchingModule } from './matching/matching.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
@@ -73,6 +76,9 @@ import { UploadsModule } from './storage/uploads/uploads.module';
     EmbeddingsModule,
     CsvModule,
     UploadsModule,
+    RequirementsModule,
+    MatchingModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [

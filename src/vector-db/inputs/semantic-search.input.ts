@@ -1,4 +1,5 @@
 export type SemanticSearchInput = {
-  vectors: number[];
+  vector: number[];
+  topK: number;
   filter?: Record<string, unknown> | null;
 };

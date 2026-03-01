@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Pinecone } from '@pinecone-database/pinecone';
+import {
+  Pinecone,
+  QueryResponse,
+  RecordMetadata,
+} from '@pinecone-database/pinecone';
 import { ProviderVectorsInput } from './inputs/provider-vectors.input';
 import { SemanticSearchInput } from './inputs/semantic-search.input';
 import appConfig from 'src/config/app.config';
@@ -83,7 +87,21 @@ export class VectorDbService {
     }
   }
 
-  async semanticSearch(input: SemanticSearchInput): Promise<void> {
+  async search(input: SemanticSearchInput) {
+    const index = this.pc.index({ name: this.config.vectorDb.indexName });
+
     // call to pinecone query methods
+    try {
+      const response: QueryResponse<RecordMetadata> = await index.query({
+        vector: input.vector,
+        topK: input.topK,
+        filter: input.filter,
+        includeMetadata: true,
+      });
+
+      return response.matches ?? [];
+    } catch (error) {
+      this.handlePineconeError(error, 'query');
+    }
   }
 }
