@@ -43,6 +43,36 @@ export class ProvidersCatalogService {
     private readonly auditService: AuditService,
   ) {}
 
+  private async handleProcessFailure(
+    providerId: string,
+    versionId: string,
+    filePath: string,
+    reason: string,
+  ): Promise<void> {
+    // register log audit
+    await this.auditService.log({
+      action: AuditAction.CATALOG_PROCESSING_FAILED,
+      metadata: { providerId, filePath, reason },
+    });
+
+    // set FAILED version in Prisma
+    await this.prisma.catalogProviderVersion.update({
+      where: {
+        id: versionId,
+      },
+      data: {
+        status: CatalogVersionStatus.FAILED,
+      },
+    });
+
+    // clean documents in mongoDb
+    await this.catalogItemModel.deleteMany({
+      providerId,
+      catalogVersionId: versionId,
+      active: false,
+    });
+  }
+
   private async validateCatalogPreconditions(
     providerId: string,
     filePath: string,
@@ -123,19 +153,13 @@ export class ProvidersCatalogService {
       }
     }
 
-    return { isValid, provider, items };
+    return { isValid, items };
   }
 
-  async processCatalog(input: ProcessCatalogInput): Promise<void> {
-    const { providerId, filePath, uploaderUserId } = input;
-
-    const { isValid, provider, items } =
-      await this.validateCatalogPreconditions(input.providerId, input.filePath);
-    if (!isValid) {
-      return;
-    }
-
-    // step2: add record in CatalogProviderVersion with status PROCESSING, and get the versionId
+  private async createCatalogProviderVersion(
+    providerId: string,
+    filePath: string,
+  ): Promise<CatalogProviderVersion | undefined> {
     let catalogProviderVersion: CatalogProviderVersion;
     let currentVersionNumber = 1;
     try {
@@ -180,9 +204,15 @@ export class ProvidersCatalogService {
       return;
     }
 
-    if (!catalogProviderVersion) return;
+    return catalogProviderVersion;
+  }
 
-    // step3: save the items in MongoDB with the versionIdUUID, number of version nd providerUUID, active: false
+  private async saveCatalogItems(
+    providerId: string,
+    catalogProviderVersion: CatalogProviderVersion,
+    items: ProviderItem[],
+    filePath: string,
+  ): Promise<boolean> {
     try {
       await this.catalogItemModel.insertMany(
         items.map((item) => {
@@ -216,6 +246,7 @@ export class ProvidersCatalogService {
         }),
         { ordered: false }, // if something fails later we can clean the missing data
       );
+      return true;
     } catch (error: unknown) {
       // save the error in audit with the providerId and filePath
       await this.handleProcessFailure(
@@ -224,10 +255,16 @@ export class ProvidersCatalogService {
         filePath,
         `Error saving items to MongoDB: ${(error as Error).message}`,
       );
-      return;
+      return false;
     }
+  }
 
-    // step4: for each item, generate embeddings for the items and build the array of items with the vector
+  private async generateVectorsForItems(
+    providerId: string,
+    catalogProviderVersion: CatalogProviderVersion,
+    items: ProviderItem[],
+    filePath: string,
+  ): Promise<{ success: boolean; vectorDbItems: ProductVectorDocument[] }> {
     const vectorDbItems: ProductVectorDocument[] = [];
     for (const item of items) {
       // generate the embedding text for the item
@@ -266,7 +303,7 @@ export class ProvidersCatalogService {
                 filePath,
                 `Non-retryable OpenAI error: ${error.message}`,
               );
-              return;
+              return { success: false, vectorDbItems: [] };
             }
 
             // if retryable and there are attempts left, wait
@@ -285,11 +322,20 @@ export class ProvidersCatalogService {
             filePath,
             `Failed to generate embeddings after ${this.MAX_RETRIES} attempts. Error: ${(error as Error).message}`,
           );
-          return;
+          return { success: false, vectorDbItems: [] };
         }
       }
     }
-    // setp5: Save in the database vector
+    // if we have generated all the vectors, we can return them
+    return { success: true, vectorDbItems };
+  }
+
+  private async upsertVectorsToVectorDb(
+    providerId: string,
+    catalogProviderVersion: CatalogProviderVersion,
+    vectorDbItems: ProductVectorDocument[],
+    filePath: string,
+  ): Promise<boolean> {
     let upsertAttempt = 0;
     while (upsertAttempt < this.MAX_RETRIES) {
       try {
@@ -309,7 +355,7 @@ export class ProvidersCatalogService {
               filePath,
               `Non-retryable Pinecone error: ${error.message}`,
             );
-            return;
+            return false;
           }
 
           if (upsertAttempt < this.MAX_RETRIES) {
@@ -324,12 +370,18 @@ export class ProvidersCatalogService {
           filePath,
           `Failed to upsert vectors after ${this.MAX_RETRIES} attempts. Error: ${(error as Error).message}`,
         );
-        return;
+        return false;
       }
     }
+    return true;
+  }
 
-    // step6: update the CatalogProviderVersion status to ACTIVE
-    // finalize: deactivate the previous version of the catalog if exists ONLY after the new version is active
+  async finalizeCatalogVersion(
+    providerId: string,
+    catalogProviderVersion: CatalogProviderVersion,
+    uploaderUserId: string,
+    filePath: string,
+  ): Promise<void> {
     let lastActiveVersionId: string | null = null;
 
     try {
@@ -434,33 +486,66 @@ export class ProvidersCatalogService {
     }
   }
 
-  private async handleProcessFailure(
-    providerId: string,
-    versionId: string,
-    filePath: string,
-    reason: string,
-  ): Promise<void> {
-    // register log audit
-    await this.auditService.log({
-      action: AuditAction.CATALOG_PROCESSING_FAILED,
-      metadata: { providerId, filePath, reason },
-    });
+  async processCatalog(input: ProcessCatalogInput): Promise<void> {
+    const { providerId, filePath, uploaderUserId } = input;
 
-    // set FAILED version in Prisma
-    await this.prisma.catalogProviderVersion.update({
-      where: {
-        id: versionId,
-      },
-      data: {
-        status: CatalogVersionStatus.FAILED,
-      },
-    });
+    const { isValid, items } = await this.validateCatalogPreconditions(
+      input.providerId,
+      input.filePath,
+    );
+    if (!isValid) {
+      return;
+    }
 
-    // clean documents in mongoDb
-    await this.catalogItemModel.deleteMany({
+    // step2: add record in CatalogProviderVersion with status PROCESSING, and get the versionId
+    const catalogProviderVersion: CatalogProviderVersion | undefined =
+      await this.createCatalogProviderVersion(providerId, filePath);
+    if (!catalogProviderVersion) {
+      return;
+    }
+
+    // step3: save the items in MongoDB with the versionIdUUID, number of version nd providerUUID, active: false
+    const itemsSaved = await this.saveCatalogItems(
       providerId,
-      catalogVersionId: versionId,
-      active: false,
-    });
+      catalogProviderVersion,
+      items,
+      filePath,
+    );
+    if (!itemsSaved) {
+      return;
+    }
+
+    // step4: for each item, generate embeddings for the items and build the array of items with the vector
+    const { success, vectorDbItems } = await this.generateVectorsForItems(
+      providerId,
+      catalogProviderVersion,
+      items,
+      filePath,
+    );
+
+    if (!success) {
+      return;
+    }
+
+    // setp5: Save in the database vector
+    const vectorsSaved = await this.upsertVectorsToVectorDb(
+      providerId,
+      catalogProviderVersion,
+      vectorDbItems,
+      filePath,
+    );
+
+    if (!vectorsSaved) {
+      return;
+    }
+
+    // step6: update the CatalogProviderVersion status to ACTIVE
+    // finalize: deactivate the previous version of the catalog if exists ONLY after the new version is active
+    await this.finalizeCatalogVersion(
+      providerId,
+      catalogProviderVersion,
+      uploaderUserId,
+      filePath,
+    );
   }
 }

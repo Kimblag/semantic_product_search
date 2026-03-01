@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class GetClientQueryDto {
@@ -12,5 +13,6 @@ export class GetClientQueryDto {
   // add a default value of true for isActive
   @IsOptional()
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   isActive?: boolean = true;
 }
