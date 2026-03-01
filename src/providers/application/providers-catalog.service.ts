@@ -19,6 +19,7 @@ import {
 } from '../schemas/provider-item.schema';
 import { ProcessCatalogInput } from './inputs/process-catalog.input';
 import { ValidateCatalogPreconditionsOutput } from './outputs/validate-catalog-preconditions.output';
+import { QueueService } from 'src/queue/queue.service';
 
 @Injectable()
 export class ProvidersCatalogService {
@@ -28,6 +29,19 @@ export class ProvidersCatalogService {
     'name',
     'description',
     'category',
+  ];
+
+  private readonly TEMPLATE_COLUMNS: string[] = [
+    'providerCode',
+    'sku',
+    'name',
+    'description',
+    'category',
+    'tags',
+    'brand',
+    'color',
+    'size',
+    'material',
   ];
 
   private readonly MAX_RETRIES = 3;
@@ -41,6 +55,7 @@ export class ProvidersCatalogService {
     @InjectModel(CatalogItem.name)
     private readonly catalogItemModel: Model<CatalogItemDocument>,
     private readonly auditService: AuditService,
+    private readonly queueService: QueueService,
   ) {}
 
   private async handleProcessFailure(
@@ -96,11 +111,11 @@ export class ProvidersCatalogService {
           reason: 'Provider not found',
         },
       });
-      return;
+      return { isValid };
     }
 
     // step1: read csv and get items
-    const items: ProviderItem[] =
+    const { results: items, headers } =
       await this.csvService.readCsv<ProviderItem>(filePath);
 
     // check if items is empty
@@ -114,7 +129,27 @@ export class ProvidersCatalogService {
           reason: 'CSV file is empty or invalid',
         },
       });
-      return;
+      return { isValid };
+    }
+
+    // check if the csv has the headers we expect
+    const missingColumns = this.TEMPLATE_COLUMNS.filter(
+      (col) => !headers.includes(col),
+    );
+
+    const extraColumns = headers.filter(
+      (col) => !this.TEMPLATE_COLUMNS.includes(col),
+    );
+    if (missingColumns.length > 0 || extraColumns.length > 0) {
+      isValid = false;
+      await this.auditService.log({
+        action: AuditAction.CATALOG_PROCESSING_FAILED,
+        metadata: {
+          providerId,
+          filePath,
+          reason: `CSV file has missing or extra columns. Missing columns: ${missingColumns.join(', ')}. Extra columns: ${extraColumns.join(', ')}`,
+        },
+      });
     }
 
     // check if items have the required fields
@@ -130,7 +165,7 @@ export class ProvidersCatalogService {
               reason: `Missing required field ${field} in item with SKU ${item.sku}`,
             },
           });
-          return;
+          return { isValid };
         }
       }
     }
@@ -149,7 +184,7 @@ export class ProvidersCatalogService {
             reason: `Invalid provider code ${item.providerCode} in item with SKU ${item.sku}. Expected provider code: ${provider.code}`,
           },
         });
-        return;
+        return { isValid };
       }
     }
 
@@ -281,6 +316,7 @@ export class ProvidersCatalogService {
             metadata: {
               providerId,
               catalogVersionId: catalogProviderVersion.id,
+              name: item.name,
               category: item.category,
               brand: item.brand,
               color: item.color,
@@ -376,7 +412,7 @@ export class ProvidersCatalogService {
     return true;
   }
 
-  async finalizeCatalogVersion(
+  private async finalizeCatalogVersion(
     providerId: string,
     catalogProviderVersion: CatalogProviderVersion,
     uploaderUserId: string,
@@ -486,7 +522,7 @@ export class ProvidersCatalogService {
     }
   }
 
-  async processCatalog(input: ProcessCatalogInput): Promise<void> {
+  private async uploadCatalog(input: ProcessCatalogInput): Promise<void> {
     const { providerId, filePath, uploaderUserId } = input;
 
     const { isValid, items } = await this.validateCatalogPreconditions(
@@ -547,5 +583,9 @@ export class ProvidersCatalogService {
       uploaderUserId,
       filePath,
     );
+  }
+
+  processCatalog(input: ProcessCatalogInput): void {
+    void this.queueService.add(() => this.uploadCatalog(input));
   }
 }

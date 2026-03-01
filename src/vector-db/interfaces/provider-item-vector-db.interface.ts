@@ -4,6 +4,7 @@ export interface ProductVectorDocument {
 
   metadata: {
     providerId: string; // provider id
+    name: string; // product name
     catalogVersionId: string; // catalog version id
     category: string;
     brand?: string | undefined;

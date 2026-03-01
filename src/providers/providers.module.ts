@@ -1,29 +1,31 @@
 import { Module } from '@nestjs/common';
-import { ProvidersService } from './application/providers.service';
-import { ProvidersController } from './controllers/providers.controller';
-import { ProvidersCatalogService } from './application/providers-catalog.service';
-import { PrismaModule } from 'src/prisma/prisma.module';
-import { VectorDbModule } from 'src/vector-db/vector-db.module';
-import { EmbeddingsModule } from 'src/embeddings/embeddings.module';
-import { CsvModule } from 'src/csv/csv.module';
-import { UploadsModule } from 'src/storage/uploads/uploads.module';
-import { CatalogItem, CatalogItemSchema } from './schemas/provider-item.schema';
-import { MongoModule } from 'src/mongo/mongo.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuditModule } from 'src/audit/audit.module';
+import { CsvModule } from 'src/csv/csv.module';
+import { EmbeddingsModule } from 'src/embeddings/embeddings.module';
+import { MongoModule } from 'src/mongo/mongo.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { QueueModule } from 'src/queue/queue.module';
+import { UploadsModule } from 'src/storage/uploads/uploads.module';
+import { VectorDbModule } from 'src/vector-db/vector-db.module';
+import { ProvidersCatalogService } from './application/providers-catalog.service';
+import { ProvidersService } from './application/providers.service';
+import { ProvidersController } from './controllers/providers.controller';
+import { CatalogItem, CatalogItemSchema } from './schemas/provider-item.schema';
 
 @Module({
   imports: [
-    PrismaModule,
-    VectorDbModule,
-    EmbeddingsModule,
+    AuditModule,
     CsvModule,
-    UploadsModule,
+    EmbeddingsModule,
     MongoModule,
     MongooseModule.forFeature([
       { name: CatalogItem.name, schema: CatalogItemSchema },
     ]),
-    AuditModule,
+    PrismaModule,
+    UploadsModule,
+    VectorDbModule,
+    QueueModule,
   ],
   providers: [ProvidersService, ProvidersCatalogService],
   controllers: [ProvidersController],

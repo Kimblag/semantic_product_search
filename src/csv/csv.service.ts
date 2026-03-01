@@ -5,16 +5,20 @@ import * as csv from 'csv-parser';
 @Injectable()
 export class CsvService {
   // read csv
-  async readCsv<T>(path: string): Promise<T[]> {
+  async readCsv<T>(path: string): Promise<{ results: T[]; headers: string[] }> {
     // We wrap stream events in a Promise so callers can await this method;
     // without it, readCsv would return before the async 'data/end/error' events finish.
     return new Promise((resolve, reject) => {
       const results: T[] = [];
+      let headers: string[] = [];
 
       fs.createReadStream(path)
         .pipe(csv())
+        .on('headers', (h: string[]) => {
+          headers = h;
+        })
         .on('data', (row: unknown) => results.push(row as T))
-        .on('end', () => resolve(results))
+        .on('end', () => resolve({ results, headers }))
         .on('error', (error) => reject(error));
     });
   }

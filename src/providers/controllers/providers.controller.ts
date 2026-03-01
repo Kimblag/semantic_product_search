@@ -128,7 +128,7 @@ export class ProvidersController {
     file: Express.Multer.File,
     @Param('id') providerId: string,
     @Req() request: Request,
-  ) {
+  ): void {
     const currentUser: JwtPayload = request.user;
     // ensure the uploads/providers directory exists
     const filePath = this.uploadsService.saveBuffer(
