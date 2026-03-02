@@ -10,7 +10,6 @@ import {
   Patch,
   Post,
   Query,
-  Req,
   Res,
   StreamableFile,
   UploadedFile,
@@ -24,10 +23,13 @@ import {
   ApiOkResponse,
   ApiProduces,
 } from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { createReadStream, existsSync } from 'fs';
 import * as multer from 'multer';
+import { join } from 'path';
 import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { User } from 'src/common/decorators/user.decorator';
 import { Role } from 'src/common/enums/role.enum';
 import { UploadSubdir } from 'src/storage/uploads/enums/upload-subdir.enum';
 import { UploadsService } from 'src/storage/uploads/uploads.service';
@@ -38,8 +40,6 @@ import { GetProviderQueryDto } from '../dtos/get-provider-query.dto';
 import { ProviderResponseDto } from '../dtos/provider-response.dto';
 import { UpdateProviderDto } from '../dtos/update-provider.dto';
 import { ProviderCatalogFilePipe } from './pipes/provider-catalog-file.pipe';
-import { createReadStream, existsSync } from 'fs';
-import { join } from 'path';
 
 @ApiBearerAuth()
 @Controller('providers')
@@ -169,9 +169,8 @@ export class ProvidersController {
     @UploadedFile(new ProviderCatalogFilePipe())
     file: Express.Multer.File,
     @Param('id') providerId: string,
-    @Req() request: Request,
+    @User() user: JwtPayload,
   ): void {
-    const currentUser: JwtPayload = request.user;
     // ensure the uploads/providers directory exists
     const filePath = this.uploadsService.saveBuffer(
       UploadSubdir.PROVIDERS,
@@ -182,7 +181,7 @@ export class ProvidersController {
     void this.providersCatalogService.processCatalog({
       providerId,
       filePath,
-      uploaderUserId: currentUser.sub, // pass the user that is uploading
+      uploaderUserId: user.sub, // pass the user that is uploading
     });
 
     return;

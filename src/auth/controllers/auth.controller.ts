@@ -8,11 +8,11 @@ import {
   Post,
   Req,
   Res,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { User } from 'src/common/decorators/user.decorator';
 import { Role } from 'src/common/enums/role.enum';
 import { AuthService } from '../application/auth.service';
 import { ChangeUserPasswordInput } from '../application/inputs/change-user-password.input';
@@ -100,12 +100,10 @@ export class AuthController {
   @Patch('change-password')
   async changePassword(
     @Body() data: ChangeUserPasswordDto,
-    @Req() request: Request,
+    @User() user: JwtPayload,
   ): Promise<void> {
-    const currentUser: JwtPayload = request.user;
-    if (!currentUser) throw new UnauthorizedException();
     const input: ChangeUserPasswordInput = {
-      userId: currentUser.sub,
+      userId: user.sub,
       currentPassword: data.currentPassword,
       newPassword: data.newPassword,
     };

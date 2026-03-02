@@ -9,14 +9,13 @@ import {
   Post,
   Put,
   Query,
-  Req,
   Res,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { User } from 'src/common/decorators/user.decorator';
 import { Role } from 'src/common/enums/role.enum';
 import { DeactivateUserInput } from '../application/inputs/deactivate-user-input';
 import { GetUserQueryInput } from '../application/inputs/get-user-query.input';
@@ -81,15 +80,12 @@ export class UsersController {
   @Patch('me')
   async updateMe(
     @Body() data: UpdateUserNameDto,
-    @Req() request: Request,
+    @User() user: JwtPayload,
   ): Promise<void> {
-    const currentUser: JwtPayload = request.user;
-    if (!currentUser) throw new UnauthorizedException();
-
     const input: UpdateUserNameInput = {
-      userId: currentUser.sub,
+      userId: user.sub,
       newName: data.name,
-      changedBy: currentUser.sub,
+      changedBy: user.sub,
     };
     await this.usersService.updateUserName(input);
   }
@@ -117,15 +113,12 @@ export class UsersController {
   async updateRoles(
     @Body() data: UpdateUserRolesDto,
     @Param('id') userId: string,
-    @Req() request: Request,
+    @User() user: JwtPayload,
   ): Promise<void> {
-    const currentUser: JwtPayload = request.user;
-    if (!currentUser) throw new UnauthorizedException();
-
     const input: UpdateUserRolesInput = {
       userId: userId,
       roles: data.roles,
-      changedBy: currentUser.sub,
+      changedBy: user.sub,
     };
     await this.usersService.updateUserRoles(input);
   }
@@ -137,15 +130,12 @@ export class UsersController {
   async update(
     @Body() data: UpdateUserNameDto,
     @Param('id') userId: string,
-    @Req() request: Request,
+    @User() user: JwtPayload,
   ): Promise<void> {
-    const currentUser: JwtPayload = request.user;
-    if (!currentUser) throw new UnauthorizedException();
-
     const input: UpdateUserNameInput = {
       userId,
       newName: data.name,
-      changedBy: currentUser.sub,
+      changedBy: user.sub,
     };
     await this.usersService.updateUserName(input);
   }
@@ -154,13 +144,10 @@ export class UsersController {
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @Patch(':id/deactivate')
-  async deactivateUser(@Param('id') userId: string, @Req() request: Request) {
-    const currentUser: JwtPayload = request.user;
-    if (!currentUser) throw new UnauthorizedException();
-
+  async deactivateUser(@Param('id') userId: string, @User() user: JwtPayload) {
     const input: DeactivateUserInput = {
       userId,
-      deactivatedBy: currentUser.sub,
+      deactivatedBy: user.sub,
     };
     await this.usersService.deactivateUser(input);
   }
@@ -169,13 +156,10 @@ export class UsersController {
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @Patch(':id/reactivate')
-  async reactivateUser(@Param('id') userId: string, @Req() request: Request) {
-    const currentUser: JwtPayload = request.user;
-    if (!currentUser) throw new UnauthorizedException();
-
+  async reactivateUser(@Param('id') userId: string, @User() user: JwtPayload) {
     const input: ReactivateUserInput = {
       userId,
-      reactivatedBy: currentUser.sub,
+      reactivatedBy: user.sub,
     };
     await this.usersService.reactivateUser(input);
   }

@@ -7,14 +7,11 @@ import {
   NotFoundException,
   Param,
   Post,
-  Req,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { RequirementsService } from './requirements.service';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { Role } from 'src/common/enums/role.enum';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -22,15 +19,17 @@ import {
   ApiOkResponse,
   ApiProduces,
 } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { createReadStream, existsSync } from 'fs';
 import * as multer from 'multer';
-import { RequirementFilePipe } from './pipes/requirement-file.pipe';
+import { join } from 'path';
 import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
-import { Request } from 'express';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { User } from 'src/common/decorators/user.decorator';
+import { Role } from 'src/common/enums/role.enum';
 import { UploadSubdir } from 'src/storage/uploads/enums/upload-subdir.enum';
 import { UploadsService } from 'src/storage/uploads/uploads.service';
-import { createReadStream, existsSync } from 'fs';
-import { join } from 'path';
+import { RequirementFilePipe } from './pipes/requirement-file.pipe';
+import { RequirementsService } from './requirements.service';
 
 @ApiBearerAuth()
 @Controller('requirements')
@@ -75,6 +74,13 @@ export class RequirementsController {
   }
 
   @Roles(Role.EXECUTIVE, Role.ADMIN)
+  @Get('history')
+  getHistory(@User() user: JwtPayload) {
+    console.log('User info from @User decorator:', user);
+    return;
+  }
+
+  @Roles(Role.EXECUTIVE, Role.ADMIN)
   @HttpCode(HttpStatus.ACCEPTED)
   @Post(':id')
   @ApiConsumes('multipart/form-data')
@@ -102,10 +108,8 @@ export class RequirementsController {
     @UploadedFile(new RequirementFilePipe())
     file: Express.Multer.File,
     @Param('id') clientId: string,
-    @Req() request: Request,
+    @User() user: JwtPayload,
   ): void {
-    const currentUser: JwtPayload = request.user;
-
     const filePath: string = this.uploadsService.saveBuffer(
       UploadSubdir.REQUIREMENTS,
       file.originalname,
@@ -116,7 +120,7 @@ export class RequirementsController {
     void this.requirementsService.processRequirements({
       clientId,
       filePath,
-      uploaderUserId: currentUser.sub,
+      uploaderUserId: user.sub,
     });
 
     return;
