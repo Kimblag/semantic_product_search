@@ -2,19 +2,28 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Patch,
   Post,
   Query,
   Req,
   Res,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiProduces,
+} from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import * as multer from 'multer';
 import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
@@ -29,6 +38,8 @@ import { GetProviderQueryDto } from '../dtos/get-provider-query.dto';
 import { ProviderResponseDto } from '../dtos/provider-response.dto';
 import { UpdateProviderDto } from '../dtos/update-provider.dto';
 import { ProviderCatalogFilePipe } from './pipes/provider-catalog-file.pipe';
+import { createReadStream, existsSync } from 'fs';
+import { join } from 'path';
 
 @ApiBearerAuth()
 @Controller('providers')
@@ -38,6 +49,37 @@ export class ProvidersController {
     private readonly providersCatalogService: ProvidersCatalogService,
     private readonly uploadsService: UploadsService,
   ) {}
+
+  // Download template
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Get('template')
+  @ApiProduces('text/csv')
+  @ApiOkResponse({
+    description: 'Download provider template CSV file.',
+    schema: { type: 'string', format: 'binary' },
+  })
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="provider-template.csv"')
+  getTemplate(): StreamableFile {
+    const pathToTemplate = join(
+      process.cwd(),
+      'src',
+      'common',
+      'templates',
+      'csv',
+      'provider-template.csv',
+    );
+
+    if (!existsSync(pathToTemplate)) {
+      throw new NotFoundException(
+        'Template CSV file not found. Please contact the administrator.',
+      );
+    }
+
+    const fileStream = createReadStream(pathToTemplate);
+    return new StreamableFile(fileStream);
+  }
 
   // create provider
   @Roles(Role.ADMIN)
