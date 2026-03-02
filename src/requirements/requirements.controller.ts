@@ -79,11 +79,23 @@ export class RequirementsController {
   @Roles(Role.EXECUTIVE, Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @Get('history')
-  async getHistory(
+  async getHistoryByUser(
     @User() user: JwtPayload,
     @Query() query: GetHistoryQueryDto,
   ): Promise<RequirementMatchingResponseDto[]> {
-    return await this.requirementsService.history(user.sub, query.status);
+    return await this.requirementsService.getUserHistory(
+      user.sub,
+      query.status,
+    );
+  }
+
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Get('admin/history')
+  async getHistory(
+    @Query() query: GetHistoryQueryDto,
+  ): Promise<RequirementMatchingResponseDto[]> {
+    return await this.requirementsService.getAllHistory(query.status);
   }
 
   @Roles(Role.EXECUTIVE, Role.ADMIN)

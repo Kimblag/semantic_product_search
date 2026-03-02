@@ -150,13 +150,16 @@ export class RequirementsService {
     );
   }
 
-  private async getRequirementsByUser(
-    userId: string,
+  private async getRequirements(
     status?: RequirementStatus,
+    userId?: string,
   ): Promise<RequirementFilteredItem[]> {
     try {
       return await this.prisma.requirement.findMany({
-        where: { userId: userId, ...(status && { status: status }) },
+        where: {
+          ...(userId && { userId: userId }),
+          ...(status && { status: status }),
+        },
         select: {
           id: true,
           clientId: true,
@@ -216,13 +219,9 @@ export class RequirementsService {
     };
   }
 
-  async history(
-    userId: string,
-    statusFilter?: RequirementStatus,
+  private async enrichRequirementsWithMatches(
+    requirements: RequirementFilteredItem[],
   ): Promise<RequirementMatchingResponseDto[]> {
-    const requirements: RequirementFilteredItem[] =
-      await this.getRequirementsByUser(userId, statusFilter);
-
     // Early return 1 - No requirements found for the user
     if (requirements.length === 0) return [];
 
@@ -309,5 +308,20 @@ export class RequirementsService {
         'Error processing history results',
       );
     }
+  }
+
+  async getUserHistory(
+    userId: string,
+    statusFilter?: RequirementStatus,
+  ): Promise<RequirementMatchingResponseDto[]> {
+    const requirements = await this.getRequirements(statusFilter, userId);
+    return await this.enrichRequirementsWithMatches(requirements);
+  }
+
+  async getAllHistory(
+    statusFilter?: RequirementStatus,
+  ): Promise<RequirementMatchingResponseDto[]> {
+    const requirements = await this.getRequirements(statusFilter);
+    return await this.enrichRequirementsWithMatches(requirements);
   }
 }
