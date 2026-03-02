@@ -1,16 +1,23 @@
-import { Injectable } from '@nestjs/common';
-import { ProcessRequirementsInput } from './inputs/process-requirement.input';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Client, Requirement } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { CsvService } from 'src/csv/csv.service';
 import { AuditService } from 'src/audit/audit.service';
 import { AuditAction } from 'src/audit/enums/audit-action.enum';
-import { RequirementItem } from 'src/requirements/types/requirement-item.type';
-import { MatchingService } from 'src/matching/matching.service';
-import { RequirementStatus } from 'src/matching/enums/requirement-status.enum';
-import { RequirementCsvItem } from 'src/csv/types/requirement-item-csv.type';
+import { CsvService } from 'src/csv/csv.service';
 import { RequirementMapper } from 'src/csv/mappers/requirement.mapper';
+import { RequirementCsvItem } from 'src/csv/types/requirement-item-csv.type';
+import { RequirementStatus } from 'src/matching/enums/requirement-status.enum';
+import { MatchingService } from 'src/matching/matching.service';
+import { MatchingResultDocument } from 'src/matching/schemas/requirement-root-document.schema';
 import { QueueService } from 'src/queue/queue.service';
+import { RequirementItem } from 'src/requirements/types/requirement-item.type';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  Match,
+  RequirementMatchingResponseDto,
+  ResultEntry,
+} from './dtos/requirement-matchig-response.dto';
+import { ProcessRequirementsInput } from './inputs/process-requirement.input';
+import { RequirementFilteredItem } from './types/requirement-history.type';
 
 @Injectable()
 export class RequirementsService {
@@ -141,5 +148,166 @@ export class RequirementsService {
         uploaderUserId,
       ),
     );
+  }
+
+  private async getRequirementsByUser(
+    userId: string,
+    status?: RequirementStatus,
+  ): Promise<RequirementFilteredItem[]> {
+    try {
+      return await this.prisma.requirement.findMany({
+        where: { userId: userId, ...(status && { status: status }) },
+        select: {
+          id: true,
+          clientId: true,
+          client: {
+            select: { name: true },
+          },
+          status: true,
+          createdAt: true,
+        },
+      });
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  private async getMatches(
+    requirementIds: string[],
+  ): Promise<MatchingResultDocument[]> {
+    try {
+      return await this.matchingService.matchesResult(requirementIds);
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  private async getProvidersNames(
+    providerIds: string[],
+  ): Promise<Map<string, string>> {
+    try {
+      const providers = await this.prisma.provider.findMany({
+        where: { id: { in: providerIds } },
+        select: { id: true, name: true },
+      });
+
+      const providerIdToNameMap = new Map<string, string>();
+      providers.forEach((provider) => {
+        providerIdToNameMap.set(provider.id, provider.name);
+      });
+
+      return providerIdToNameMap;
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  private mapToResponseDto(
+    req: RequirementFilteredItem,
+    results: ResultEntry[] = [],
+  ): RequirementMatchingResponseDto {
+    return {
+      requirementId: req.id,
+      clientId: req.clientId,
+      client: req.client.name,
+      status: req.status as RequirementStatus,
+      createdAt: req.createdAt,
+      results: results,
+    };
+  }
+
+  async history(
+    userId: string,
+    statusFilter?: RequirementStatus,
+  ): Promise<RequirementMatchingResponseDto[]> {
+    const requirements: RequirementFilteredItem[] =
+      await this.getRequirementsByUser(userId, statusFilter);
+
+    // Early return 1 - No requirements found for the user
+    if (requirements.length === 0) return [];
+
+    const requirementIds: string[] = requirements
+      .filter((req) => req.status === RequirementStatus.PROCESSED)
+      .map((req) => req.id);
+
+    // Early return 2 - No processed requirements found
+    if (requirementIds.length === 0) {
+      return requirements.map((req) => this.mapToResponseDto(req, []));
+    }
+
+    const matches = await this.getMatches(requirementIds);
+
+    // Early return 3 - No matching results found
+    if (!matches || matches.length === 0) {
+      return requirements.map((req) => this.mapToResponseDto(req, []));
+    }
+
+    // Extract unique Provider IDs
+    const uniqueProviderIds = new Set<string>();
+    matches.forEach((matchDoc) => {
+      matchDoc.items.forEach((itemWrapper) => {
+        itemWrapper.matches.forEach((match) => {
+          uniqueProviderIds.add(match.providerId);
+        });
+      });
+    });
+
+    const providerIdToNameMap = await this.getProvidersNames(
+      Array.from(uniqueProviderIds),
+    );
+
+    try {
+      const historyByRequirementId = matches.reduce<
+        Record<string, ResultEntry[]>
+      >((acc, matchDoc: MatchingResultDocument) => {
+        if (!acc[matchDoc.requirementId]) {
+          acc[matchDoc.requirementId] = [];
+        }
+
+        const resultEntry: ResultEntry = {
+          matchingId: matchDoc._id.toString(),
+          createdAt: matchDoc.createdAt,
+          items: matchDoc.items.map((i) => ({
+            productName: i.item.productName,
+            description: i.item.description,
+            category: i.item.category,
+            brand: i.item.brand,
+            color: i.item.color,
+            size: i.item.size,
+            material: i.item.material,
+            tags: i.item.tags,
+
+            matches: i.matches.map(
+              (m): Match => ({
+                providerId: m.providerId,
+                providerName:
+                  providerIdToNameMap.get(m.providerId) || 'Unknown Provider',
+                catalogItemId: m.catalogItemId,
+                catalogVersionId: m.catalogVersionId,
+                sku: m.sku,
+                name: m.name,
+                category: m.category,
+                tags: m.tags,
+                score: m.score,
+              }),
+            ),
+          })),
+        };
+
+        acc[matchDoc.requirementId].push(resultEntry);
+        return acc;
+      }, {});
+
+      const mergedHistory = requirements.map((req) => {
+        const matchingResults = historyByRequirementId[req.id] || [];
+        return this.mapToResponseDto(req, matchingResults);
+      });
+
+      return mergedHistory;
+    } catch {
+      throw new InternalServerErrorException(
+        'Error processing history results',
+      );
+    }
   }
 }

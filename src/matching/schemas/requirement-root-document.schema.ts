@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { RequirementItem } from './requirement-item.schema';
 import { HydratedDocument } from 'mongoose';
+import { RequirementItem } from './requirement-item.schema';
 
 export type MatchingResultDocument = HydratedDocument<MatchingResult>;
 
@@ -14,6 +14,9 @@ export class MatchingResult {
 
   @Prop({ type: [RequirementItem], default: [] })
   items: RequirementItem[];
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const MatchingResultSchema =

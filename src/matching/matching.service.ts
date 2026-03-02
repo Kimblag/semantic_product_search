@@ -1,24 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { AuditService } from 'src/audit/audit.service';
-import { RequirementItem } from 'src/requirements/types/requirement-item.type';
-import { EmbeddingsService } from 'src/embeddings/embeddings.service';
-import {
-  MatchingResult,
-  MatchingResultDocument,
-} from './schemas/requirement-root-document.schema';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { VectorDbService } from 'src/vector-db/vector-db.service';
-import { Requirement } from '@prisma/client';
-import { AuditAction } from 'src/audit/enums/audit-action.enum';
-import { RequirementStatus } from './enums/requirement-status.enum';
-import { EmbeddingGenerationException } from 'src/embeddings/exceptions/embedding-generation.exception';
-import { VectorDbException } from 'src/vector-db/exceptions/vector-db.exception';
 import {
   RecordMetadata,
   ScoredPineconeRecord,
 } from '@pinecone-database/pinecone';
+import { Requirement } from '@prisma/client';
+import { Model } from 'mongoose';
+import { AuditService } from 'src/audit/audit.service';
+import { AuditAction } from 'src/audit/enums/audit-action.enum';
+import { EmbeddingsService } from 'src/embeddings/embeddings.service';
+import { EmbeddingGenerationException } from 'src/embeddings/exceptions/embedding-generation.exception';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { RequirementItem } from 'src/requirements/types/requirement-item.type';
+import { VectorDbException } from 'src/vector-db/exceptions/vector-db.exception';
+import { VectorDbService } from 'src/vector-db/vector-db.service';
+import { RequirementStatus } from './enums/requirement-status.enum';
+import {
+  MatchingResult,
+  MatchingResultDocument,
+} from './schemas/requirement-root-document.schema';
 
 @Injectable()
 export class MatchingService {
@@ -26,13 +26,13 @@ export class MatchingService {
   private readonly BASE_DELAY_MS: number = 500;
   private readonly EMBEDDING_BATCH_SIZE: number = 10;
   private readonly SEARCH_BATCH_SIZE: number = 20;
-  private readonly TOP_K: number = 10;
+  private readonly TOP_K: number = 5;
 
   constructor(
     private readonly auditService: AuditService,
     private readonly embeddingService: EmbeddingsService,
     @InjectModel(MatchingResult.name)
-    private readonly catalogItemModel: Model<MatchingResultDocument>,
+    private readonly matchingResultModel: Model<MatchingResultDocument>,
     private readonly prisma: PrismaService,
     private readonly vectorDbService: VectorDbService,
   ) {}
@@ -322,7 +322,7 @@ export class MatchingService {
         searchResults,
       );
 
-      const saved = await this.catalogItemModel.create(document);
+      const saved = await this.matchingResultModel.create(document);
 
       await this.prisma.requirement.update({
         where: { id: requirement.id },
@@ -351,6 +351,27 @@ export class MatchingService {
       );
 
       return;
+    }
+  }
+
+  async matchesResult(requirementIds: string[]) {
+    // get the matching results from mongo db based on the requirement ids
+    try {
+      const history = await this.matchingResultModel
+        .find(
+          { requirementId: { $in: requirementIds } },
+          {
+            _id: 1,
+            requirementId: 1,
+            items: 1,
+            createdAt: 1,
+          },
+        )
+        .lean() // use lean to get plain javascript objects and avoid mongoose document overhead
+        .exec();
+      return history;
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
     }
   }
 }

@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
@@ -30,6 +31,8 @@ import { UploadSubdir } from 'src/storage/uploads/enums/upload-subdir.enum';
 import { UploadsService } from 'src/storage/uploads/uploads.service';
 import { RequirementFilePipe } from './pipes/requirement-file.pipe';
 import { RequirementsService } from './requirements.service';
+import { RequirementMatchingResponseDto } from './dtos/requirement-matchig-response.dto';
+import { GetHistoryQueryDto } from './dtos/get-history-query.dto';
 
 @ApiBearerAuth()
 @Controller('requirements')
@@ -74,10 +77,13 @@ export class RequirementsController {
   }
 
   @Roles(Role.EXECUTIVE, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
   @Get('history')
-  getHistory(@User() user: JwtPayload) {
-    console.log('User info from @User decorator:', user);
-    return;
+  async getHistory(
+    @User() user: JwtPayload,
+    @Query() query: GetHistoryQueryDto,
+  ): Promise<RequirementMatchingResponseDto[]> {
+    return await this.requirementsService.history(user.sub, query.status);
   }
 
   @Roles(Role.EXECUTIVE, Role.ADMIN)
