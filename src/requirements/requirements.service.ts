@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Client, Requirement } from '@prisma/client';
+import { plainToInstance } from 'class-transformer';
 import { AuditService } from 'src/audit/audit.service';
 import { AuditAction } from 'src/audit/enums/audit-action.enum';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
@@ -21,6 +22,7 @@ import {
   RequirementMatchingResponseDto,
   ResultEntry,
 } from './dtos/requirement-matchig-response.dto';
+import { RequirementResponseDto } from './dtos/requirement-response.dto';
 import { ProcessRequirementsInput } from './inputs/process-requirement.input';
 import { RequirementFilteredItem } from './types/requirement-history.type';
 
@@ -145,6 +147,17 @@ export class RequirementsService {
       },
     });
 
+    // Log the start of processing
+    await this.auditService.log({
+      action: AuditAction.REQUIREMENT_PROCESSING_STARTED,
+      userId: input.uploaderUserId,
+      metadata: {
+        filePath: filePath,
+        clientId: clientId,
+        requirementId: requirement.id,
+      },
+    });
+
     // Call the matching service to match requirements to the catalog
     void this.queueService.add(() =>
       this.matchingService.matchRequirementsToCatalog(
@@ -168,6 +181,7 @@ export class RequirementsService {
       ...(status && { status: status }),
       ...(query.date && { createdAt: { gte: query.date } }),
       ...(query.clientId && { clientId: query.clientId }),
+      ...(query.requirementId && { id: query.requirementId }),
     };
 
     try {
@@ -338,15 +352,37 @@ export class RequirementsService {
     }
   }
 
-  async getUserHistory(
+  async getRequirementByUser(
+    userId: string,
+    requirementId: string,
+  ): Promise<RequirementMatchingResponseDto> {
+    const { requirements } = await this.getRequirements(
+      { requirementId },
+      userId,
+    );
+    const result = await this.enrichRequirementsWithMatches(requirements);
+    return result.length > 0 ? result[0] : null;
+  }
+
+  async getRequirementsByUser(
     userId: string,
     query: GetHistoryQueryDto,
-  ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
+  ): Promise<PaginatedResponse<RequirementResponseDto>> {
     const { page, limit } = query;
-    const { total, requirements } = await this.getRequirements(query, userId);
-    const result = await this.enrichRequirementsWithMatches(requirements);
+    const { total, requirements: result } = await this.getRequirements(
+      query,
+      userId,
+    );
+
+    const requirements: RequirementResponseDto[] = plainToInstance(
+      RequirementResponseDto,
+      result,
+      {
+        excludeExtraneousValues: true,
+      },
+    );
     return {
-      data: result,
+      data: requirements,
       meta: {
         total,
         page,
@@ -356,14 +392,24 @@ export class RequirementsService {
     };
   }
 
-  async getAllHistory(
+  async getAllRequirementsAdmin(
     query: GetAdminHistoryQueryDto,
-  ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
+  ): Promise<PaginatedResponse<RequirementResponseDto>> {
     const { page, limit, userId } = query;
-    const { total, requirements } = await this.getRequirements(query, userId);
-    const result = await this.enrichRequirementsWithMatches(requirements);
+    const { total, requirements: result } = await this.getRequirements(
+      query,
+      userId,
+    );
+
+    const requirements: RequirementResponseDto[] = plainToInstance(
+      RequirementResponseDto,
+      result,
+      {
+        excludeExtraneousValues: true,
+      },
+    );
     return {
-      data: result,
+      data: requirements,
       meta: {
         total,
         page,
@@ -371,5 +417,16 @@ export class RequirementsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async getRequirementAdmin(
+    requirementId: string,
+  ): Promise<RequirementMatchingResponseDto | null> {
+    const { requirements } = await this.getRequirements(
+      { requirementId },
+      null,
+    );
+    const result = await this.enrichRequirementsWithMatches(requirements);
+    return result.length > 0 ? result[0] : null;
   }
 }

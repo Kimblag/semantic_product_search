@@ -28,6 +28,14 @@ export class GetHistoryQueryDto extends PaginationQueryDto {
   @Type(() => Date)
   @IsDate()
   date?: Date;
+
+  @ApiPropertyOptional({
+    description: 'Filter history by requirement ID',
+    type: String,
+  })
+  @IsOptional()
+  @IsUUID()
+  requirementId?: string;
 }
 
 export class GetAdminHistoryQueryDto extends GetHistoryQueryDto {

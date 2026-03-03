@@ -35,6 +35,7 @@ import {
   GetHistoryQueryDto,
 } from './dtos/get-history-query.dto';
 import { RequirementMatchingResponseDto } from './dtos/requirement-matchig-response.dto';
+import { RequirementResponseDto } from './dtos/requirement-response.dto';
 import { RequirementFilePipe } from './pipes/requirement-file.pipe';
 import { RequirementsService } from './requirements.service';
 
@@ -80,23 +81,44 @@ export class RequirementsController {
     return new StreamableFile(fileStream);
   }
 
-  @Roles(Role.EXECUTIVE, Role.ADMIN)
+  @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @Get('history')
-  async getHistoryByUser(
-    @User() user: JwtPayload,
-    @Query() query: GetHistoryQueryDto,
-  ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
-    return await this.requirementsService.getUserHistory(user.sub, query);
+  @Get('admin')
+  async getRequirementsAdmin(
+    @Query() query: GetAdminHistoryQueryDto,
+  ): Promise<PaginatedResponse<RequirementResponseDto>> {
+    return await this.requirementsService.getAllRequirementsAdmin(query);
   }
 
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @Get('admin/history')
-  async getHistory(
-    @Query() query: GetAdminHistoryQueryDto,
-  ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
-    return await this.requirementsService.getAllHistory(query);
+  @Get('admin/:id')
+  async getRequirementByIdAdmin(@Param('id') requirementId: string) {
+    return await this.requirementsService.getRequirementAdmin(requirementId);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Get()
+  async getRequirementsByUser(
+    @User() user: JwtPayload,
+    @Query() query: GetHistoryQueryDto,
+  ): Promise<PaginatedResponse<RequirementResponseDto>> {
+    return await this.requirementsService.getRequirementsByUser(
+      user.sub,
+      query,
+    );
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Get(':id')
+  async getRequirementByIdUser(
+    @User() user: JwtPayload,
+    @Param('id') requirementId: string,
+  ): Promise<RequirementMatchingResponseDto | null> {
+    return await this.requirementsService.getRequirementByUser(
+      user.sub,
+      requirementId,
+    );
   }
 
   @Roles(Role.EXECUTIVE, Role.ADMIN)
