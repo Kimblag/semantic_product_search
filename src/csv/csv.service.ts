@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import * as csv from 'fast-csv';
 import * as fs from 'fs';
-import * as csv from 'csv-parser';
+import { PassThrough } from 'stream';
+import { CsvDataRow } from './types/requirement-export.type';
 
 @Injectable()
 export class CsvService {
@@ -13,7 +15,7 @@ export class CsvService {
       let headers: string[] = [];
 
       fs.createReadStream(path)
-        .pipe(csv())
+        .pipe(csv.parse({ headers: true }))
         .on('headers', (h: string[]) => {
           headers = h;
         })
@@ -21,5 +23,17 @@ export class CsvService {
         .on('end', () => resolve({ results, headers }))
         .on('error', (error) => reject(error));
     });
+  }
+
+  exportCsvStream(data: CsvDataRow[], headers: string[]): PassThrough {
+    const stream = new PassThrough();
+    const csvStream = csv.format({ headers, writeBOM: true });
+
+    csvStream.pipe(stream);
+
+    data.forEach((row) => csvStream.write(row));
+    csvStream.end();
+
+    return stream;
   }
 }

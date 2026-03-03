@@ -25,6 +25,9 @@ import {
 import { RequirementResponseDto } from './dtos/requirement-response.dto';
 import { ProcessRequirementsInput } from './inputs/process-requirement.input';
 import { RequirementFilteredItem } from './types/requirement-history.type';
+import { flattenRequirementsForCsv } from 'src/common/mappers/requirement-to-csv.mapper';
+import { PassThrough } from 'stream';
+import { CsvDataRow } from 'src/csv/types/requirement-export.type';
 
 @Injectable()
 export class RequirementsService {
@@ -428,5 +431,36 @@ export class RequirementsService {
     );
     const result = await this.enrichRequirementsWithMatches(requirements);
     return result.length > 0 ? result[0] : null;
+  }
+
+  async exportRequirementsCsv(requirementId: string): Promise<{
+    stream: PassThrough;
+    headers: string[];
+  }> {
+    const requirement = await this.getRequirementAdmin(requirementId);
+
+    if (!requirement) {
+      throw new InternalServerErrorException('Requirement not found');
+    }
+    const rows: CsvDataRow[] = flattenRequirementsForCsv([requirement]);
+
+    const headers: string[] = [
+      'requirementId',
+      'clientName',
+      'createdAt',
+      'itemName',
+      'itemCategory',
+      'itemBrand',
+      'itemColor',
+      'matchProvider',
+      'matchSku',
+      'matchName',
+      'matchCategory',
+      'matchScore',
+    ];
+
+    const stream: PassThrough = this.csvService.exportCsvStream(rows, headers);
+
+    return { stream, headers };
   }
 }

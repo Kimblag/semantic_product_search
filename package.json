@@ -28,6 +28,8 @@
     "index:pinecone": "ts-node src/scripts/pinecone-init.script.ts"
   },
   "dependencies": {
+    "@fast-csv/format": "5.0.5",
+    "@fast-csv/parse": "5.0.5",
     "@nestjs/common": "11.0.1",
     "@nestjs/config": "4.0.3",
     "@nestjs/core": "11.0.1",
@@ -41,7 +43,7 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.14.3",
     "commander": "14.0.3",
-    "csv-parser": "3.2.0",
+    "fast-csv": "5.0.5",
     "helmet": "8.1.0",
     "joi": "18.0.2",
     "mongoose": "9.2.1",

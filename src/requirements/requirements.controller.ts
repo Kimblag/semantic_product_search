@@ -109,6 +109,17 @@ export class RequirementsController {
     );
   }
 
+  @Roles(Role.ADMIN, Role.EXECUTIVE)
+  @HttpCode(HttpStatus.OK)
+  @Get(':id/export/csv')
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="requirement.csv"')
+  async exportCsv(@Param('id') requirementId: string): Promise<StreamableFile> {
+    const { stream } =
+      await this.requirementsService.exportRequirementsCsv(requirementId);
+    return new StreamableFile(stream);
+  }
+
   @HttpCode(HttpStatus.OK)
   @Get(':id')
   async getRequirementByIdUser(
