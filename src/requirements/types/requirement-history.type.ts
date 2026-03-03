@@ -8,4 +8,9 @@ export type RequirementFilteredItem = {
   client: {
     name: string;
   };
+  userId: string;
+  user: {
+    name: string;
+    email: string;
+  };
 };

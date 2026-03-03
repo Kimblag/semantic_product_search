@@ -27,13 +27,16 @@ import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { User } from 'src/common/decorators/user.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 import { UploadSubdir } from 'src/storage/uploads/enums/upload-subdir.enum';
 import { UploadsService } from 'src/storage/uploads/uploads.service';
+import {
+  GetAdminHistoryQueryDto,
+  GetHistoryQueryDto,
+} from './dtos/get-history-query.dto';
+import { RequirementMatchingResponseDto } from './dtos/requirement-matchig-response.dto';
 import { RequirementFilePipe } from './pipes/requirement-file.pipe';
 import { RequirementsService } from './requirements.service';
-import { RequirementMatchingResponseDto } from './dtos/requirement-matchig-response.dto';
-import { GetHistoryQueryDto } from './dtos/get-history-query.dto';
-import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @ApiBearerAuth()
 @Controller('requirements')
@@ -91,7 +94,7 @@ export class RequirementsController {
   @HttpCode(HttpStatus.OK)
   @Get('admin/history')
   async getHistory(
-    @Query() query: GetHistoryQueryDto,
+    @Query() query: GetAdminHistoryQueryDto,
   ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
     return await this.requirementsService.getAllHistory(query);
   }

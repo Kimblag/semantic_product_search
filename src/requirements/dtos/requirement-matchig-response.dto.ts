@@ -38,6 +38,9 @@ export class RequirementMatchingResponseDto {
   requirementId: string;
   clientId: string;
   client: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
   status: RequirementStatus;
   createdAt: Date;
   results: ResultEntry[];

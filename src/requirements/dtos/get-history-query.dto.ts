@@ -29,3 +29,12 @@ export class GetHistoryQueryDto extends PaginationQueryDto {
   @IsDate()
   date?: Date;
 }
+
+export class GetAdminHistoryQueryDto extends GetHistoryQueryDto {
+  @ApiPropertyOptional({
+    description: 'Filter history by user ID',
+  })
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+}

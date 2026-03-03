@@ -12,7 +12,10 @@ import { MatchingResultDocument } from 'src/matching/schemas/requirement-root-do
 import { QueueService } from 'src/queue/queue.service';
 import { RequirementItem } from 'src/requirements/types/requirement-item.type';
 import { PrismaService } from '../prisma/prisma.service';
-import { GetHistoryQueryDto } from './dtos/get-history-query.dto';
+import {
+  GetAdminHistoryQueryDto,
+  GetHistoryQueryDto,
+} from './dtos/get-history-query.dto';
 import {
   Match,
   RequirementMatchingResponseDto,
@@ -180,6 +183,13 @@ export class RequirementsService {
             client: { select: { name: true } },
             status: true,
             createdAt: true,
+            userId: true,
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
           },
           orderBy: { createdAt: 'desc' },
         }),
@@ -228,6 +238,9 @@ export class RequirementsService {
       requirementId: req.id,
       clientId: req.clientId,
       client: req.client.name,
+      userId: req.userId,
+      userName: req.user.name,
+      userEmail: req.user.email,
       status: req.status as RequirementStatus,
       createdAt: req.createdAt,
       results: results,
@@ -344,10 +357,10 @@ export class RequirementsService {
   }
 
   async getAllHistory(
-    query: GetHistoryQueryDto,
+    query: GetAdminHistoryQueryDto,
   ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
-    const { page, limit } = query;
-    const { total, requirements } = await this.getRequirements(query);
+    const { page, limit, userId } = query;
+    const { total, requirements } = await this.getRequirements(query, userId);
     const result = await this.enrichRequirementsWithMatches(requirements);
     return {
       data: result,
