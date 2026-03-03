@@ -23,6 +23,7 @@ import { ReactivateUserInput } from './inputs/reactivate-user-input';
 import { UpdateUserEmailInput } from './inputs/update-user-email.input';
 import { UpdateUserNameInput } from './inputs/update-user-name.input';
 import { UpdateUserRolesInput } from './inputs/update-user-roles.input';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 // Define a type that includes the user along with their roles and the role details
 type UserWithRoles = Prisma.UserGetPayload<{
@@ -117,63 +118,92 @@ export class UsersService {
   }
 
   // find all users with their roles and role details
-  async findAllUsers(input: GetUserQueryInput): Promise<UserResponseDto[]> {
-    const whereClause: Prisma.UserWhereInput = {};
+  async findAllUsers(
+    input: GetUserQueryInput,
+  ): Promise<PaginatedResponse<UserResponseDto>> {
+    const { page, limit } = input;
+    const skip = (page - 1) * limit;
+    const take = limit;
+
+    let whereClause = {};
 
     if (input.email) {
-      whereClause.email = input.email;
+      whereClause = {
+        ...whereClause,
+        email: input.email,
+      };
     }
 
     if (input.isActive !== undefined) {
-      whereClause.active = input.isActive;
+      whereClause = {
+        ...whereClause,
+        active: input.isActive,
+      };
     }
 
     if (input.roleId) {
-      whereClause.roles = {
-        some: {
-          rolId: input.roleId,
+      whereClause = {
+        ...whereClause,
+        roles: {
+          some: {
+            rolId: input.roleId,
+          },
         },
       };
     }
 
-    let users = [];
     try {
-      users = await this.prisma.user.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          active: true,
-          createdAt: true,
-          roles: {
-            select: {
-              rol: {
-                select: {
-                  id: true,
-                  name: true,
+      const [total, users] = await this.prisma.$transaction([
+        this.prisma.user.count({ where: whereClause }),
+
+        this.prisma.user.findMany({
+          where: whereClause,
+          skip,
+          take,
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            active: true,
+            createdAt: true,
+            roles: {
+              select: {
+                rol: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
                 },
               },
             },
           },
+        }),
+      ]);
+
+      let userResponseDtos: UserResponseDto[] = [];
+
+      if (users.length > 0) {
+        // Transform the array of user objects to an array of UserResponseDto,
+        // excluding sensitive fields like passwordHash and updatedAt
+        userResponseDtos = users.map((user) =>
+          plainToInstance(UserResponseDto, user, {
+            excludeExtraneousValues: true,
+          }),
+        );
+      }
+
+      return {
+        data: userResponseDtos,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
         },
-      });
+      };
     } catch {
       throw new InternalServerErrorException('Internal server error.');
     }
-
-    let userResponseDtos: UserResponseDto[] = [];
-    if (users.length > 0) {
-      // Transform the array of user objects to an array of UserResponseDto,
-      // excluding sensitive fields like passwordHash and updatedAt
-      userResponseDtos = users.map((user) =>
-        plainToInstance(UserResponseDto, user, {
-          excludeExtraneousValues: true,
-        }),
-      );
-    }
-
-    return userResponseDtos;
   }
 
   // Find a user by email and include their roles and role details

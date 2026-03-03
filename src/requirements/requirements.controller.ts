@@ -33,6 +33,7 @@ import { RequirementFilePipe } from './pipes/requirement-file.pipe';
 import { RequirementsService } from './requirements.service';
 import { RequirementMatchingResponseDto } from './dtos/requirement-matchig-response.dto';
 import { GetHistoryQueryDto } from './dtos/get-history-query.dto';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @ApiBearerAuth()
 @Controller('requirements')
@@ -82,11 +83,8 @@ export class RequirementsController {
   async getHistoryByUser(
     @User() user: JwtPayload,
     @Query() query: GetHistoryQueryDto,
-  ): Promise<RequirementMatchingResponseDto[]> {
-    return await this.requirementsService.getUserHistory(
-      user.sub,
-      query.status,
-    );
+  ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
+    return await this.requirementsService.getUserHistory(user.sub, query);
   }
 
   @Roles(Role.ADMIN)
@@ -94,8 +92,8 @@ export class RequirementsController {
   @Get('admin/history')
   async getHistory(
     @Query() query: GetHistoryQueryDto,
-  ): Promise<RequirementMatchingResponseDto[]> {
-    return await this.requirementsService.getAllHistory(query.status);
+  ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
+    return await this.requirementsService.getAllHistory(query);
   }
 
   @Roles(Role.EXECUTIVE, Role.ADMIN)

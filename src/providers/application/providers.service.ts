@@ -10,6 +10,7 @@ import { ProviderResponseDto } from '../dtos/provider-response.dto';
 import { CreateProviderInput } from './inputs/create-provider.input';
 import { GetProviderQueryInput } from './inputs/get-provider-query.input';
 import { UpdateProviderInput } from './inputs/update-provider.input';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @Injectable()
 export class ProvidersService {
@@ -55,11 +56,17 @@ export class ProvidersService {
 
   async findAllProviders(
     input: GetProviderQueryInput,
-  ): Promise<ProviderResponseDto[]> {
-    let whereClause: Prisma.ProviderWhereInput = {};
+  ): Promise<PaginatedResponse<ProviderResponseDto>> {
+    const { page, limit } = input;
+    const skip = (page - 1) * limit;
+    const take = limit;
+    let whereClause = {};
 
     if (input.code) {
-      whereClause.code = input.code;
+      whereClause = {
+        ...whereClause,
+        code: input.code,
+      };
     }
 
     if (input.email) {
@@ -81,23 +88,41 @@ export class ProvidersService {
     }
 
     if (input.isActive !== undefined) {
-      whereClause.active = input.isActive;
+      whereClause = {
+        ...whereClause,
+        active: input.isActive,
+      };
     }
 
     try {
-      return await this.prisma.provider.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          email: true,
-          telephone: true,
-          address: true,
-          active: true,
-          createdAt: true,
+      const [total, providers] = await this.prisma.$transaction([
+        this.prisma.provider.count({ where: whereClause }),
+        this.prisma.provider.findMany({
+          where: whereClause,
+          skip,
+          take,
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            email: true,
+            telephone: true,
+            address: true,
+            active: true,
+            createdAt: true,
+          },
+        }),
+      ]);
+
+      return {
+        data: providers,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
         },
-      });
+      };
     } catch {
       throw new InternalServerErrorException('Internal server error.');
     }

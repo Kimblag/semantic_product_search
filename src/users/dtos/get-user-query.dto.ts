@@ -1,6 +1,8 @@
+import { Transform } from 'class-transformer';
 import { IsBoolean, IsEmail, IsOptional, IsUUID } from 'class-validator';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 
-export class GetUsersQueryDto {
+export class GetUsersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEmail()
   email?: string;
@@ -11,5 +13,6 @@ export class GetUsersQueryDto {
 
   @IsOptional()
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   isActive?: boolean = true;
 }

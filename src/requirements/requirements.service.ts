@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Client, Requirement } from '@prisma/client';
 import { AuditService } from 'src/audit/audit.service';
 import { AuditAction } from 'src/audit/enums/audit-action.enum';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 import { CsvService } from 'src/csv/csv.service';
 import { RequirementMapper } from 'src/csv/mappers/requirement.mapper';
 import { RequirementCsvItem } from 'src/csv/types/requirement-item-csv.type';
@@ -11,6 +12,7 @@ import { MatchingResultDocument } from 'src/matching/schemas/requirement-root-do
 import { QueueService } from 'src/queue/queue.service';
 import { RequirementItem } from 'src/requirements/types/requirement-item.type';
 import { PrismaService } from '../prisma/prisma.service';
+import { GetHistoryQueryDto } from './dtos/get-history-query.dto';
 import {
   Match,
   RequirementMatchingResponseDto,
@@ -151,25 +153,36 @@ export class RequirementsService {
   }
 
   private async getRequirements(
-    status?: RequirementStatus,
+    query: GetHistoryQueryDto,
     userId?: string,
-  ): Promise<RequirementFilteredItem[]> {
+  ): Promise<{ total: number; requirements: RequirementFilteredItem[] }> {
+    const { status, page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+    const take = limit;
+
+    const whereClause = {
+      ...(userId && { userId: userId }),
+      ...(status && { status: status }),
+    };
+
     try {
-      return await this.prisma.requirement.findMany({
-        where: {
-          ...(userId && { userId: userId }),
-          ...(status && { status: status }),
-        },
-        select: {
-          id: true,
-          clientId: true,
-          client: {
-            select: { name: true },
+      const [total, requirements] = await this.prisma.$transaction([
+        this.prisma.requirement.count({ where: whereClause }),
+        this.prisma.requirement.findMany({
+          where: whereClause,
+          skip,
+          take,
+          select: {
+            id: true,
+            clientId: true,
+            client: { select: { name: true } },
+            status: true,
+            createdAt: true,
           },
-          status: true,
-          createdAt: true,
-        },
-      });
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]);
+      return { total, requirements };
     } catch {
       throw new InternalServerErrorException('Internal server error.');
     }
@@ -312,16 +325,36 @@ export class RequirementsService {
 
   async getUserHistory(
     userId: string,
-    statusFilter?: RequirementStatus,
-  ): Promise<RequirementMatchingResponseDto[]> {
-    const requirements = await this.getRequirements(statusFilter, userId);
-    return await this.enrichRequirementsWithMatches(requirements);
+    query: GetHistoryQueryDto,
+  ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
+    const { page, limit } = query;
+    const { total, requirements } = await this.getRequirements(query, userId);
+    const result = await this.enrichRequirementsWithMatches(requirements);
+    return {
+      data: result,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getAllHistory(
-    statusFilter?: RequirementStatus,
-  ): Promise<RequirementMatchingResponseDto[]> {
-    const requirements = await this.getRequirements(statusFilter);
-    return await this.enrichRequirementsWithMatches(requirements);
+    query: GetHistoryQueryDto,
+  ): Promise<PaginatedResponse<RequirementMatchingResponseDto>> {
+    const { page, limit } = query;
+    const { total, requirements } = await this.getRequirements(query);
+    const result = await this.enrichRequirementsWithMatches(requirements);
+    return {
+      data: result,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }

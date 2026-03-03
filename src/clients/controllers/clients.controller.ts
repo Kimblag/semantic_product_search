@@ -14,6 +14,7 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 import { ClientsService } from '../application/clients.service';
 import { CreateClientDto } from '../dtos/client-create.dto';
 import { ClientResponseDto } from '../dtos/client-response.dto';
@@ -50,12 +51,14 @@ export class ClientsController {
   @HttpCode(HttpStatus.OK)
   @Get()
   async findAll(
-    @Query() filters: GetClientQueryDto,
-  ): Promise<ClientResponseDto[]> {
+    @Query() query: GetClientQueryDto,
+  ): Promise<PaginatedResponse<ClientResponseDto>> {
     return this.clientsService.findAllClients({
-      name: filters.name,
-      email: filters.email,
-      active: filters.isActive,
+      name: query.name,
+      email: query.email,
+      active: query.isActive,
+      page: query.page,
+      limit: query.limit,
     });
   }
 

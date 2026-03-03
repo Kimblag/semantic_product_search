@@ -17,8 +17,8 @@ import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { User } from 'src/common/decorators/user.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 import { DeactivateUserInput } from '../application/inputs/deactivate-user-input';
-import { GetUserQueryInput } from '../application/inputs/get-user-query.input';
 import { ReactivateUserInput } from '../application/inputs/reactivate-user-input';
 import { UpdateUserEmailInput } from '../application/inputs/update-user-email.input';
 import { UpdateUserNameInput } from '../application/inputs/update-user-name.input';
@@ -64,14 +64,15 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @Get()
   async findAll(
-    @Query() filters: GetUsersQueryDto,
-  ): Promise<UserResponseDto[]> {
-    const input: GetUserQueryInput = {
-      email: filters.email,
-      isActive: filters.isActive,
-      roleId: filters.roleId,
-    };
-    return this.usersService.findAllUsers(input);
+    @Query() query: GetUsersQueryDto,
+  ): Promise<PaginatedResponse<UserResponseDto>> {
+    return this.usersService.findAllUsers({
+      email: query.email,
+      isActive: query.isActive,
+      roleId: query.roleId,
+      page: query.page,
+      limit: query.limit,
+    });
   }
 
   // update my name ownership-based access control

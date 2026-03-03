@@ -261,6 +261,8 @@ export class AuthService {
     // generate new access token
     const userQueryCommand: GetUserQueryInput = {
       id: tokenRecord.userId,
+      page: 1,
+      limit: 1,
     };
     const user = await this.userService.findUserAuthById(userQueryCommand.id);
 

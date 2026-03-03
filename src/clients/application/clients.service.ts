@@ -10,6 +10,7 @@ import { ClientResponseDto } from '../dtos/client-response.dto';
 import { CreateClientInput } from './inputs/create-client.input';
 import { GetClientsQueryInput } from './inputs/get-clients-query.input';
 import { UpdateClientInput } from './inputs/update-client.input';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @Injectable()
 export class ClientsService {
@@ -50,8 +51,11 @@ export class ClientsService {
   // get all clients
   async findAllClients(
     input: GetClientsQueryInput,
-  ): Promise<ClientResponseDto[]> {
-    let whereClause: Prisma.ClientWhereInput = {};
+  ): Promise<PaginatedResponse<ClientResponseDto>> {
+    const { page, limit } = input;
+    const skip = (page - 1) * limit;
+    const take = limit;
+    let whereClause = {};
 
     if (input.name) {
       whereClause = {
@@ -72,22 +76,40 @@ export class ClientsService {
     }
 
     if (input.active !== undefined) {
-      whereClause.active = input.active;
+      whereClause = {
+        ...whereClause,
+        active: input.active,
+      };
     }
 
     try {
-      return await this.prisma.client.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          address: true,
-          telephone: true,
-          active: true,
-          createdAt: true,
+      const [total, clients] = await this.prisma.$transaction([
+        this.prisma.client.count({ where: whereClause }),
+        this.prisma.client.findMany({
+          where: whereClause,
+          skip,
+          take,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            address: true,
+            telephone: true,
+            active: true,
+            createdAt: true,
+          },
+        }),
+      ]);
+
+      return {
+        data: clients,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
         },
-      });
+      };
     } catch {
       throw new InternalServerErrorException('Internal server error.');
     }

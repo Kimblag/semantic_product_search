@@ -3,4 +3,6 @@ export type GetUserQueryInput = {
   email?: string | undefined;
   isActive?: boolean;
   roleId?: string | undefined;
+  page: number;
+  limit: number;
 };

@@ -1,7 +1,8 @@
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 
-export class GetProviderQueryDto {
+export class GetProviderQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   code?: string | undefined;

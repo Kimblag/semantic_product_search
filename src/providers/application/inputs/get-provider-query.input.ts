@@ -3,4 +3,6 @@ export type GetProviderQueryInput = {
   name?: string;
   email?: string;
   isActive?: boolean;
+  page: number;
+  limit: number;
 };

@@ -40,6 +40,7 @@ import { GetProviderQueryDto } from '../dtos/get-provider-query.dto';
 import { ProviderResponseDto } from '../dtos/provider-response.dto';
 import { UpdateProviderDto } from '../dtos/update-provider.dto';
 import { ProviderCatalogFilePipe } from './pipes/provider-catalog-file.pipe';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @ApiBearerAuth()
 @Controller('providers')
@@ -105,19 +106,23 @@ export class ProvidersController {
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @Get()
-  async findAll(@Query() filters: GetProviderQueryDto) {
+  async findAll(
+    @Query() filters: GetProviderQueryDto,
+  ): Promise<PaginatedResponse<ProviderResponseDto>> {
     return await this.providersService.findAllProviders({
       code: filters.code,
       name: filters.name,
       email: filters.email,
       isActive: filters.isActive,
+      page: filters.page,
+      limit: filters.limit,
     });
   }
 
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @Get(':id')
-  async findOne(@Param('id') providerId: string) {
+  async findOne(@Param('id') providerId: string): Promise<ProviderResponseDto> {
     return await this.providersService.findProviderById(providerId);
   }
 
