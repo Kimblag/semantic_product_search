@@ -163,6 +163,8 @@ export class RequirementsService {
     const whereClause = {
       ...(userId && { userId: userId }),
       ...(status && { status: status }),
+      ...(query.date && { createdAt: { gte: query.date } }),
+      ...(query.clientId && { clientId: query.clientId }),
     };
 
     try {
