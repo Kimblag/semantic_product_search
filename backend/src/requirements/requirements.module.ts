@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { RequirementsController } from './requirements.controller';
-import { RequirementsService } from './requirements.service';
+import { RequirementsService } from './application/requirements.service';
+import { RequirementsController } from './controllers/requirements.controller';
 import { UploadsModule } from 'src/storage/uploads/uploads.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { AuditModule } from 'src/audit/audit.module';
@@ -15,7 +15,6 @@ import { QueueModule } from 'src/queue/queue.module';
     AuditModule,
     CsvModule,
     MatchingModule,
-    UploadsModule,
     QueueModule,
   ],
   controllers: [RequirementsController],
