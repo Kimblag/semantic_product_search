@@ -1,123 +1,216 @@
 # Semantic Product Search
 
-## Descripción
+Backend NestJS para gestionar catálogo de proveedores, requerimientos de clientes y búsqueda semántica de productos con embeddings.
 
-**Semantic Product Search** es un backend profesional que automatiza la búsqueda semántica de productos dentro de catálogos de proveedores.
-Permite a los ejecutivos de ventas cargar requerimientos de clientes y obtener coincidencias exactas o semánticas del catálogo de proveedores, con score y justificación.
-Incluye **trazabilidad completa y auditoría**, y un módulo de administración para gestionar usuarios, catálogos y parámetros de búsqueda.
+## Contexto
 
----
+Equipos comerciales suelen comparar requerimientos de clientes contra catálogos de proveedores de forma manual, lenta y difícil de auditar.
 
-## Stack Tecnológico
+Este proyecto reduce ese esfuerzo al:
 
-| Capa                        | Tecnología                                          |
-| --------------------------- | --------------------------------------------------- |
-| Backend                     | Node.js + Nest.js + TypeScript                      |
-| Base de datos NoSQL         | MongoDB (catálogo, historial, logs)                 |
-| Base de datos relacional    | SQLite + Prisma (usuarios, roles, ejecuciones)      |
-| Búsqueda semántica          | OpenAI embeddings, Pinecone                         |
-| Procesamiento en background | Bull + Redis                                        |
-| Seguridad                   | Autenticación, roles, logs de auditoría según OWASP |
+- normalizar carga de catálogos/requerimientos vía CSV,
+- ejecutar matching semántico con score de similitud,
+- mantener trazabilidad por usuario, cliente y ejecución,
+- permitir exportación de resultados para operación comercial.
 
----
+## Importancia
 
-## Módulos principales
+- Menor tiempo de respuesta comercial para cotizaciones.
+- Mayor consistencia entre ejecutivos al usar un criterio de matching común.
+- Mejor gobernanza por auditoría, control de roles y trazabilidad de acciones.
 
-### Proveedores
+## Funcionalidades
 
-* Admin puede crear, modificar y eliminar proveedores y sus items.
-* Los items forman el catálogo.
+- Autenticación JWT con refresh token y control de acceso por roles/permisos.
+- Gestión de usuarios, roles, clientes y proveedores.
+- Carga de catálogos y requerimientos por archivo CSV (con validación de formato).
+- Procesamiento asíncrono con cola interna en memoria (concurrencia configurable), sin Bull/Redis.
+- Matching semántico con OpenAI + Pinecone.
+- Historial y exportación CSV de resultados de matching.
+- Auditoría de acciones en MongoDB (colección con TTL para limpieza automática).
 
-### Clientes
+## Tecnologías
 
-* Ejecutivos pueden cargar clientes y requerimientos (CSV).
-* Cada requerimiento dispara búsqueda semántica.
-* Se guarda historial completo: quién, cuándo, qué resultados.
-* Permite auditoría: admin ve acciones críticas de todos los usuarios.
+- Backend: NestJS 11 + TypeScript.
+- Base relacional: Prisma + SQLite.
+- Base documental: MongoDB + Mongoose.
+- Vector DB: Pinecone.
+- Embeddings: OpenAI.
+- Seguridad: JWT, guards globales, throttling y Helmet.
 
----
+## Arquitectura de datos
 
-## Funcionalidades clave
+- SQLite (Prisma): usuarios, roles, permisos, clientes, proveedores, requerimientos, refresh tokens.
+- MongoDB: resultados de matching (`matching_results`) y auditoría (`audit_logs`).
+- Pinecone: índice vectorial para búsqueda semántica.
 
-### Ejecutivos
+## Flujo general
 
-* Subir requerimientos de clientes (CSV).
-* Ejecutar búsqueda semántica y recibir resultados con score y justificación.
-* Consultar historial de búsquedas propias.
-* Exportar o enviar resultados a clientes.
-
-### Administradores
-
-* Gestionar usuarios y roles.
-* Administrar catálogo de proveedores y productos (CRUD, normalización, categorías, tags).
-* Configurar parámetros de búsqueda semántica.
-* Monitorear tareas en segundo plano y consultar historial completo de ejecuciones.
-* Acceder a logs de auditoría y resultados de cualquier usuario.
-
----
-
-## Procesamiento en segundo plano
-
-* Todas las tareas de generación de embeddings y búsquedas se ejecutan **sin bloquear al cliente**.
-* Se utiliza **Bull + Redis**:
-
-  * La API responde inmediatamente cuando se cargan requerimientos.
-  * Un worker procesa embeddings y actualiza MongoDB y Pinecone.
-* Permite múltiples ejecutivos ejecutando búsquedas simultáneamente sin degradar la performance.
-
----
-
-## Arquitectura de flujo
-
-```
-Cliente -> Nest.js API -> Cola (Redis) -> Worker procesa embeddings -> MongoDB/Pinecone
+```text
+Cliente/API Consumer
+	-> NestJS Controllers + Guards
+	-> Services de dominio
+	-> Cola interna (QueueService, concurrencia=2)
+	-> Matching + Embeddings
+	-> Persistencia (SQLite + MongoDB + Pinecone)
 ```
 
----
+## Rutas principales
 
-## Input / Output
+- `/auth`
+- `/users`
+- `/roles`
+- `/clients`
+- `/providers`
+- `/requirements`
+- `/docs` (Swagger)
 
-**Input:**
+## Ejemplo de uso
 
-* Requerimientos: CSV (producto, cantidad opcional, cliente)
-* Catálogo: documentos MongoDB (nombre, descripción, categoría, tags, atributos, proveedor)
-* Parámetros de búsqueda: N coincidencias, thresholds, categorías prioritarias
+1. Un admin crea proveedor y carga catálogo CSV (`/providers/:id/catalog`).
+2. Un ejecutivo crea/selecciona cliente y sube requerimiento CSV (`/requirements/:id`).
+3. El procesamiento queda en background y se ejecuta matching semántico.
+4. El usuario consulta historial/resultados (`/requirements`, `/requirements/:id`).
+5. Se exporta el resultado en CSV (`/requirements/:id/export/csv`).
 
-**Output:**
+## Decisiones de implementación
 
-* Resultados por requerimiento: productos coincidentes, score y justificación
-* Exportable a CSV
-* Historial accesible para ejecutivos y admin (usuario, cliente, fecha, ID de ejecución)
+- Cola en memoria en lugar de Bull/Redis:
+	- Ventaja: menor complejidad operativa local.
+	- Trade-off: no hay persistencia de jobs entre reinicios.
+- Doble persistencia (SQLite + MongoDB):
+	- Ventaja: separa datos transaccionales de documentos de resultados/auditoría.
+	- Trade-off: más componentes a operar y sincronizar.
+- Embeddings externos (OpenAI/Pinecone):
+	- Ventaja: búsqueda semántica de mayor calidad.
+	- Trade-off: dependencia de servicios externos y costo por uso.
 
----
+## Variables de entorno
 
-## Cómo levantarlo localmente
+La aplicación valida estas variables al arrancar:
+
+```env
+DATABASE_URL=file:./dev.db
+MONGO_URL=mongodb://localhost:27017/semantic_product_search
+
+JWT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+JWT_REFRESH_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+JWT_ISSUER=semantic-product-search
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN_SECONDS=604800
+
+HASH_SALT_ROUNDS=10
+HASH_SALT_ROUNDS_REFRESH=10
+MAX_FAILED_ATTEMPTS=5
+LOCK_TIME=900000
+
+PINECONE_API_KEY=...
+PINECONE_REGION=...
+PINECONE_INDEX_NAME=...
+PINECONE_CLOUD=...
+
+EMBEDDINGS_MODEL=text-embedding-3-small
+OPENAI_API_KEY=...
+
+PORT=3000
+NODE_ENV=development
+```
+
+## Ejecutar en local
+
+### 1) Requisitos previos
+
+- Node.js 20+
+- pnpm 10+
+- MongoDB accesible
+- Cuenta/API keys de OpenAI y Pinecone
+
+### 2) Instalar dependencias
 
 ```bash
-# Clonar repo
-git clone <repo-url>
-cd semantic-product-search
-
-# Instalar dependencias
-npm install
-
-# Configurar .env
-MONGO_URI=<tu mongo local o Atlas>
-DATABASE_URL="file:./dev.db"   # para Prisma SQLite
-OPENAI_API_KEY=<tu openai key>
-PINECONE_API_KEY=<tu pinecone key>
-REDIS_URL=<tu redis local>
-
-# Migrar base relacional
-npx prisma migrate dev
-
-# Levantar Redis
-redis-server
-
-# Ejecutar app
-npm run start:dev
-
-# Swagger para probar endpoints
-http://localhost:3000/docs
+pnpm install
 ```
 
+### 3) Configurar `.env`
+
+Crear archivo `.env` en la raíz del proyecto con las variables de la sección anterior.
+
+### 4) Inicializar base relacional (Prisma)
+
+```bash
+pnpm prisma migrate dev --name init
+pnpm prisma generate
+```
+
+### 5) (Opcional) Sembrar datos base
+
+```bash
+pnpm run seed
+```
+
+El seed crea permisos, roles (`Admin`, `Executive`) y un usuario root:
+
+- Email: `root@system.com`
+- Password: `root12345678`
+
+### 6) (Opcional) Crear/validar índice en Pinecone
+
+```bash
+pnpm run index:pinecone
+```
+
+### 7) Levantar el servidor
+
+```bash
+pnpm run start:dev
+```
+
+API local:
+
+- `http://localhost:3000`
+- Swagger: `http://localhost:3000/docs`
+
+## Ejecutar tests
+
+```bash
+# unit tests
+pnpm run test
+
+# unit tests en modo watch
+pnpm run test:watch
+
+# cobertura
+pnpm run test:cov
+
+# e2e
+pnpm run test:e2e
+```
+
+## Seguridad
+
+- Autenticación JWT + refresh token.
+- Control de acceso por roles/permisos.
+- Throttling en endpoints sensibles (ej. login).
+- `helmet` y validación estricta de DTOs (`ValidationPipe`).
+
+## Producción
+
+- Ejecutar con `NODE_ENV=production` y secretos gestionados por un secret manager.
+- Usar una base relacional gestionada (en vez de SQLite) si se requiere escalado horizontal.
+- Ejecutar MongoDB y Pinecone en entornos estables y monitoreados.
+- Añadir observabilidad: logs estructurados, métricas y alertas por error rate/latencia.
+
+## Limitaciones
+
+- La cola interna no persiste trabajos si el proceso se reinicia.
+- Dependencia de OpenAI/Pinecone para el matching semántico.
+- No incluye en este repositorio un pipeline de CI/CD listo para producción.
+
+## Comandos útiles
+
+```bash
+pnpm run build
+pnpm run lint
+pnpm run format
+pnpm run start:prod
+```
