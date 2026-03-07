@@ -112,3 +112,13 @@ export function AlertIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function LogoutIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path strokeLinecap="round" d="M10 17H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4" />
+      <path strokeLinecap="round" d="M13 12h7" />
+      <path strokeLinecap="round" d="m17 8 4 4-4 4" />
+    </svg>
+  );
+}

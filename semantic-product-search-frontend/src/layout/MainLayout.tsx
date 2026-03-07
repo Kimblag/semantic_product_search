@@ -1,10 +1,12 @@
 import type { SVGProps } from "react";
-import { useMemo, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useCallback, useMemo, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/useAuth";
 import {
   ClientIcon,
   CloseIcon,
   DashboardIcon,
+  LogoutIcon,
   MenuIcon,
   ProfileIcon,
   ProviderIcon,
@@ -101,7 +103,30 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut, user } = useAuth();
+
+  const displayName = user?.name?.trim() || "Workspace User";
+  const displayRole = user?.roles?.[0] || "Executive";
+
+  const initials = useMemo(() => {
+    const parts = displayName.split(" ").filter(Boolean);
+    if (parts.length === 0) return "WU";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }, [displayName]);
+
+  const handleLogout = useCallback(async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      navigate("/login", { replace: true });
+    } finally {
+      setIsSigningOut(false);
+    }
+  }, [navigate, signOut]);
 
   const currentPageLabel = useMemo(() => {
     for (const section of menuSections) {
@@ -120,7 +145,7 @@ export function MainLayout() {
         <div className="absolute bottom-0 right-0 h-60 w-60 rounded-full bg-fern-700/25 blur-3xl animate-float-soft" />
       </div>
       <div className="flex min-h-screen">
-        <aside className="hidden w-72 flex-col bg-gradient-to-b from-pine-teal-500 via-pine-teal-500 to-pine-teal-400 md:flex">
+        <aside className="hidden w-72 flex-col bg-linear-to-b from-pine-teal-500 via-pine-teal-500 to-pine-teal-400 md:flex">
           <SidebarContent />
         </aside>
 
@@ -149,12 +174,21 @@ export function MainLayout() {
               <div className="flex items-center gap-3">
                 <div className="hidden text-right sm:block">
                   <p className="text-sm font-semibold text-pine-teal-300">
-                    Alex Miller
+                    {displayName}
                   </p>
-                  <p className="text-xs text-pine-teal-600">Administrator</p>
+                  <p className="text-xs text-pine-teal-600">{displayRole}</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={isSigningOut}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-pine-teal-700/30 px-3 text-xs font-semibold text-pine-teal-300 transition hover:bg-pine-teal-700/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <LogoutIcon className="h-4 w-4" aria-hidden="true" />
+                  {isSigningOut ? "Signing out..." : "Logout"}
+                </button>
                 <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-dry-sage-500 text-sm font-semibold text-pine-teal-300 ring-2 ring-dust-grey-900/70">
-                  AM
+                  {initials}
                 </div>
               </div>
             </div>
@@ -174,7 +208,7 @@ export function MainLayout() {
             className="absolute inset-0 bg-black/50"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <aside className="absolute left-0 top-0 flex h-full w-72 flex-col bg-gradient-to-b from-pine-teal-500 via-pine-teal-500 to-pine-teal-400 shadow-2xl animate-rise">
+          <aside className="absolute left-0 top-0 flex h-full w-72 flex-col bg-linear-to-b from-pine-teal-500 via-pine-teal-500 to-pine-teal-400 shadow-2xl animate-rise">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <p className="text-sm font-semibold text-dust-grey-900">
                 Navigation
@@ -189,6 +223,17 @@ export function MainLayout() {
               </button>
             </div>
             <SidebarContent onNavigate={() => setIsMobileMenuOpen(false)} />
+            <div className="border-t border-white/10 p-4">
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isSigningOut}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 px-3 py-2 text-sm font-semibold text-dust-grey-900 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <LogoutIcon className="h-4 w-4" aria-hidden="true" />
+                {isSigningOut ? "Signing out..." : "Logout"}
+              </button>
+            </div>
           </aside>
         </div>
       )}
