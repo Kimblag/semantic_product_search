@@ -76,9 +76,8 @@ export class UsersController {
     @Query() query: GetUsersQueryDto,
   ): Promise<PaginatedResponse<UserResponseDto>> {
     return this.usersService.findAllUsers({
-      email: query.email,
+      q: query.q,
       isActive: query.isActive,
-      roleId: query.roleId,
       page: query.page,
       limit: query.limit,
     });

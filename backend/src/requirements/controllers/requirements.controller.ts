@@ -13,6 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -133,6 +134,7 @@ export class RequirementsController {
   }
 
   @Roles(Role.EXECUTIVE, Role.ADMIN)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @HttpCode(HttpStatus.ACCEPTED)
   @Post(':id')
   @ApiConsumes('multipart/form-data')

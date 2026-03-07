@@ -126,31 +126,38 @@ export class UsersService {
     const skip = (page - 1) * limit;
     const take = limit;
 
-    let whereClause = {};
+    const whereClause: Prisma.UserWhereInput = {};
 
-    if (input.email) {
-      whereClause = {
-        ...whereClause,
-        email: input.email,
-      };
+    // Build query string search across email, name, and role names
+    if (input.q) {
+      const searchQuery = input.q;
+      whereClause.OR = [
+        {
+          email: {
+            contains: searchQuery,
+          },
+        },
+        {
+          name: {
+            contains: searchQuery,
+          },
+        },
+        {
+          roles: {
+            some: {
+              rol: {
+                name: {
+                  contains: searchQuery,
+                },
+              },
+            },
+          },
+        },
+      ];
     }
 
     if (input.isActive !== undefined) {
-      whereClause = {
-        ...whereClause,
-        active: input.isActive,
-      };
-    }
-
-    if (input.roleId) {
-      whereClause = {
-        ...whereClause,
-        roles: {
-          some: {
-            rolId: input.roleId,
-          },
-        },
-      };
+      whereClause.active = input.isActive;
     }
 
     try {
@@ -161,20 +168,10 @@ export class UsersService {
           where: whereClause,
           skip,
           take,
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            active: true,
-            createdAt: true,
+          include: {
             roles: {
-              select: {
-                rol: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
+              include: {
+                rol: true,
               },
             },
           },
@@ -185,12 +182,18 @@ export class UsersService {
 
       if (users.length > 0) {
         // Transform the array of user objects to an array of UserResponseDto,
-        // excluding sensitive fields like passwordHash and updatedAt
-        userResponseDtos = users.map((user) =>
-          plainToInstance(UserResponseDto, user, {
+        // mapping UserRol.rol to roles array
+        userResponseDtos = users.map((user) => {
+          const dto = plainToInstance(UserResponseDto, user, {
             excludeExtraneousValues: true,
-          }),
-        );
+          });
+          // Map the nested rol relationship to the roles array
+          dto.roles = user.roles.map((userRol) => ({
+            id: userRol.rol.id,
+            name: userRol.rol.name,
+          }));
+          return dto;
+        });
       }
 
       return {

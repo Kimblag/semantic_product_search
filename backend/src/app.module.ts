@@ -59,8 +59,8 @@ import { QueueModule } from './queue/queue.module';
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          ttl: 60000, // miliseconds
-          limit: 10, // max request per ttl
+          ttl: 60000, // milliseconds
+          limit: 100, // max request per minute for normal endpoints
         },
       ],
     }),
