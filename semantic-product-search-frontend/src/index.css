@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -50,4 +51,61 @@
 	--color-pine-teal-700: #75a38c;
 	--color-pine-teal-800: #a3c2b3;
 	--color-pine-teal-900: #d1e0d9;
+}
+
+:root {
+	--font-display: "Sora", "Segoe UI", sans-serif;
+	--font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+body {
+	font-family: var(--font-body);
+	color: #1f2e26;
+	background:
+		radial-gradient(circle at 0% 0%, rgb(163 177 138 / 28%) 0%, transparent 46%),
+		radial-gradient(circle at 100% 100%, rgb(88 129 87 / 16%) 0%, transparent 52%),
+		linear-gradient(160deg, #f0efeb 0%, #e9e7e1 45%, #e2dfd7 100%);
+	min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: var(--font-display);
+}
+
+#root {
+	min-height: 100vh;
+}
+
+@keyframes rise-in {
+	from {
+		opacity: 0;
+		transform: translateY(14px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes float-soft {
+	0%,
+	100% {
+		transform: translateY(0px);
+	}
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
+.animate-rise {
+	animation: rise-in 450ms ease-out both;
+}
+
+.animate-float-soft {
+	animation: float-soft 4.5s ease-in-out infinite;
 }
