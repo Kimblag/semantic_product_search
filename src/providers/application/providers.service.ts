@@ -131,7 +131,7 @@ export class ProvidersService {
   // get by id
   async findProviderById(providerId: string): Promise<ProviderResponseDto> {
     try {
-      return this.prisma.provider.findUnique({
+      return await this.prisma.provider.findUnique({
         where: {
           id: providerId,
         },

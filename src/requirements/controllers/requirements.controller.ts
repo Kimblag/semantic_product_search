@@ -30,14 +30,14 @@ import { Role } from 'src/common/enums/role.enum';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 import { UploadSubdir } from 'src/storage/uploads/enums/upload-subdir.enum';
 import { UploadsService } from 'src/storage/uploads/uploads.service';
+import { RequirementsService } from '../application/requirements.service';
 import {
   GetAdminHistoryQueryDto,
   GetHistoryQueryDto,
-} from './dtos/get-history-query.dto';
-import { RequirementMatchingResponseDto } from './dtos/requirement-matchig-response.dto';
-import { RequirementResponseDto } from './dtos/requirement-response.dto';
-import { RequirementFilePipe } from './pipes/requirement-file.pipe';
-import { RequirementsService } from './requirements.service';
+} from '../dtos/get-history-query.dto';
+import { RequirementMatchingResponseDto } from '../dtos/requirement-matchig-response.dto';
+import { RequirementResponseDto } from '../dtos/requirement-response.dto';
+import { RequirementFilePipe } from '../pipes/requirement-file.pipe';
 
 @ApiBearerAuth()
 @Controller('requirements')

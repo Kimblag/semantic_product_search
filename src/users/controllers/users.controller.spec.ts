@@ -1,12 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { UserResponseDto } from '../dtos/user-response.dto';
 import { UsersService } from '../application/users.service';
-import type { Request, Response } from 'express';
+import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
+import type { Response } from 'express';
 
 const createUsersServiceMock = () => ({
   createUser: jest.fn(),
+  findUserById: jest.fn(),
   findAllUsers: jest.fn(),
   updateUserName: jest.fn(),
   updateUserEmail: jest.fn(),
@@ -15,18 +17,16 @@ const createUsersServiceMock = () => ({
   reactivateUser: jest.fn(),
 });
 
-const buildRequest = (overrides: Partial<Request> = {}): Partial<Request> => ({
-  ip: '127.0.0.1',
-  headers: { 'user-agent': 'Mozilla/5.0' },
-  user: undefined,
-  ...overrides,
-});
-
 const buildResponse = (): Pick<Response, 'setHeader'> => ({
   setHeader: jest.fn(),
 });
 
-const ADMIN_USER = { sub: 'admin-uuid-123', roles: ['ADMIN'], iat: 1000 };
+const ADMIN_USER: JwtPayload = {
+  sub: 'admin-uuid-123',
+  roles: ['ADMIN'],
+  iat: 1000,
+};
+
 const TARGET_USER_ID = 'target-uuid-456';
 const ROLE_UUID = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 
@@ -94,14 +94,50 @@ describe('UsersController', () => {
     });
   });
 
+  describe('findOne', () => {
+    it('should return a user', async () => {
+      usersService.findUserById.mockResolvedValue(mockUserResponse);
+
+      const result = await controller.findOne(TARGET_USER_ID);
+
+      expect(usersService.findUserById).toHaveBeenCalledWith(TARGET_USER_ID);
+      expect(result).toEqual(mockUserResponse);
+    });
+  });
+
+  describe('findAll', () => {
+    it('should return paginated users', async () => {
+      const paginated = {
+        data: [mockUserResponse],
+        page: 1,
+        limit: 10,
+        total: 1,
+      };
+
+      usersService.findAllUsers.mockResolvedValue(paginated);
+
+      const query = {
+        email: undefined,
+        roleId: undefined,
+        isActive: true,
+        page: 1,
+        limit: 10,
+      };
+
+      const result = await controller.findAll(query);
+
+      expect(usersService.findAllUsers).toHaveBeenCalledWith(query);
+      expect(result).toEqual(paginated);
+    });
+  });
+
   describe('updateMe', () => {
     const dto = { name: 'new name' };
 
     it('should update current user name', async () => {
       usersService.updateUserName.mockResolvedValue(undefined);
-      const req = buildRequest({ user: ADMIN_USER });
 
-      await controller.updateMe(dto, req as Request);
+      await controller.updateMe(dto, ADMIN_USER);
 
       expect(usersService.updateUserName).toHaveBeenCalledWith({
         userId: ADMIN_USER.sub,
@@ -110,14 +146,12 @@ describe('UsersController', () => {
       });
     });
 
-    it('should throw UnauthorizedException if no user', async () => {
-      const req = buildRequest({ user: undefined });
+    it('should propagate service errors', async () => {
+      usersService.updateUserName.mockRejectedValue(new NotFoundException());
 
-      await expect(controller.updateMe(dto, req as Request)).rejects.toThrow(
-        UnauthorizedException,
+      await expect(controller.updateMe(dto, ADMIN_USER)).rejects.toThrow(
+        NotFoundException,
       );
-
-      expect(usersService.updateUserName).not.toHaveBeenCalled();
     });
   });
 
@@ -141,9 +175,8 @@ describe('UsersController', () => {
 
     it('should update roles', async () => {
       usersService.updateUserRoles.mockResolvedValue(undefined);
-      const req = buildRequest({ user: ADMIN_USER });
 
-      await controller.updateRoles(dto, TARGET_USER_ID, req as Request);
+      await controller.updateRoles(dto, TARGET_USER_ID, ADMIN_USER);
 
       expect(usersService.updateUserRoles).toHaveBeenCalledWith({
         userId: TARGET_USER_ID,
@@ -153,12 +186,27 @@ describe('UsersController', () => {
     });
   });
 
+  describe('update', () => {
+    const dto = { name: 'updated name' };
+
+    it('should update user name by admin', async () => {
+      usersService.updateUserName.mockResolvedValue(undefined);
+
+      await controller.update(dto, TARGET_USER_ID, ADMIN_USER);
+
+      expect(usersService.updateUserName).toHaveBeenCalledWith({
+        userId: TARGET_USER_ID,
+        newName: dto.name,
+        changedBy: ADMIN_USER.sub,
+      });
+    });
+  });
+
   describe('deactivateUser', () => {
     it('should deactivate user', async () => {
       usersService.deactivateUser.mockResolvedValue(undefined);
-      const req = buildRequest({ user: ADMIN_USER });
 
-      await controller.deactivateUser(TARGET_USER_ID, req as Request);
+      await controller.deactivateUser(TARGET_USER_ID, ADMIN_USER);
 
       expect(usersService.deactivateUser).toHaveBeenCalledWith({
         userId: TARGET_USER_ID,
@@ -170,9 +218,8 @@ describe('UsersController', () => {
   describe('reactivateUser', () => {
     it('should reactivate user', async () => {
       usersService.reactivateUser.mockResolvedValue(undefined);
-      const req = buildRequest({ user: ADMIN_USER });
 
-      await controller.reactivateUser(TARGET_USER_ID, req as Request);
+      await controller.reactivateUser(TARGET_USER_ID, ADMIN_USER);
 
       expect(usersService.reactivateUser).toHaveBeenCalledWith({
         userId: TARGET_USER_ID,

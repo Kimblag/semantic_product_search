@@ -16,15 +16,16 @@ const createPrismaServiceMock = () => ({
     findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    count: jest.fn(),
   },
+  $transaction: jest.fn(),
 });
 
 const makePrismaError = (code: string) => {
-  const error = new Prisma.PrismaClientKnownRequestError('error', {
+  return new Prisma.PrismaClientKnownRequestError('error', {
     code,
     clientVersion: '0.0.0',
   });
-  return error;
 };
 
 // shared data
@@ -65,6 +66,10 @@ describe('ClientsService', () => {
     }).compile();
 
     service = module.get<ClientsService>(ClientsService);
+
+    prismaService.$transaction.mockImplementation(
+      async (queries: Promise<unknown>[]) => Promise.all(queries),
+    );
   });
 
   afterEach(() => {
@@ -87,12 +92,18 @@ describe('ClientsService', () => {
       prismaService.client.create.mockResolvedValue(mockClientSelected);
 
       const result = await service.createClient(input);
+
       expect(prismaService.client.create).toHaveBeenCalledWith({
-        data: input,
+        data: {
+          name: input.name,
+          email: input.email,
+          address: input.address,
+          telephone: input.telephone,
+        },
         select: SELECTED_FIELDS,
       });
 
-      expect({ ...result }).toMatchObject(mockClientSelected);
+      expect(result).toMatchObject(mockClientSelected);
     });
 
     it('should throw ConflictException on P2002', async () => {
@@ -113,10 +124,13 @@ describe('ClientsService', () => {
   });
 
   describe('findAllClients', () => {
-    it('should return clients with filters', async () => {
+    it('should return paginated clients with filters', async () => {
+      prismaService.client.count.mockResolvedValue(1);
       prismaService.client.findMany.mockResolvedValue([mockClientSelected]);
 
       const result = await service.findAllClients({
+        page: 1,
+        limit: 10,
         name: 'Client A',
         email: undefined,
         active: true,
@@ -131,15 +145,19 @@ describe('ClientsService', () => {
         }),
       );
 
-      expect(result).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+      expect(result.data).toHaveLength(1);
     });
 
     it('should throw InternalServerErrorException on error', async () => {
-      prismaService.client.findMany.mockRejectedValue(new Error());
+      prismaService.$transaction.mockRejectedValue(new Error());
 
-      await expect(service.findAllClients({})).rejects.toThrow(
-        InternalServerErrorException,
-      );
+      await expect(
+        service.findAllClients({
+          page: 1,
+          limit: 10,
+        }),
+      ).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -149,11 +167,11 @@ describe('ClientsService', () => {
 
       const result = await service.findClientById(CLIENT_ID);
 
-      expect(prismaService.client.findUnique).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: CLIENT_ID },
-        }),
-      );
+      expect(prismaService.client.findUnique).toHaveBeenCalledWith({
+        where: { id: CLIENT_ID },
+        select: SELECTED_FIELDS,
+      });
+
       expect(result?.id).toBe(CLIENT_ID);
     });
 
@@ -195,6 +213,14 @@ describe('ClientsService', () => {
 
       await expect(service.updateClient({ id: CLIENT_ID })).rejects.toThrow(
         ConflictException,
+      );
+    });
+
+    it('should throw InternalServerErrorException on unknown error', async () => {
+      prismaService.client.update.mockRejectedValue(new Error());
+
+      await expect(service.updateClient({ id: CLIENT_ID })).rejects.toThrow(
+        InternalServerErrorException,
       );
     });
   });

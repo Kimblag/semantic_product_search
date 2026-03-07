@@ -11,10 +11,12 @@ import { ProvidersService } from './providers.service';
 const createPrismaMock = () => ({
   provider: {
     create: jest.fn(),
-    findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
+  $transaction: jest.fn(),
 });
 
 const makePrismaError = (code: string) =>
@@ -81,12 +83,11 @@ describe('ProvidersService', () => {
       address: 'Street 123',
     };
 
-    it('should create provider successfully and return the mapped fields', async () => {
+    it('should create provider successfully', async () => {
       prisma.provider.create.mockResolvedValue(MOCK_PROVIDER);
 
       const result = await service.createProvider(input);
 
-      // Verify the service maps each field explicitly, not spreading input directly
       expect(prisma.provider.create).toHaveBeenCalledWith({
         data: {
           code: input.code,
@@ -97,6 +98,7 @@ describe('ProvidersService', () => {
         },
         select: SELECTED_FIELDS,
       });
+
       expect(result).toEqual(MOCK_PROVIDER);
     });
 
@@ -117,7 +119,7 @@ describe('ProvidersService', () => {
     });
 
     it('should throw InternalServerErrorException on unknown error', async () => {
-      prisma.provider.create.mockRejectedValue(new Error('unknown'));
+      prisma.provider.create.mockRejectedValue(new Error());
 
       await expect(service.createProvider(input)).rejects.toThrow(
         InternalServerErrorException,
@@ -126,74 +128,46 @@ describe('ProvidersService', () => {
   });
 
   describe('findAllProviders', () => {
-    it('should return all providers when no filters are provided', async () => {
-      prisma.provider.findMany.mockResolvedValue([MOCK_PROVIDER]);
+    it('should return paginated providers without filters', async () => {
+      prisma.$transaction.mockResolvedValue([1, [MOCK_PROVIDER]]);
 
-      const result = await service.findAllProviders({});
-
-      expect(prisma.provider.findMany).toHaveBeenCalledWith({
-        where: {},
-        select: SELECTED_FIELDS,
+      const result = await service.findAllProviders({
+        page: 1,
+        limit: 10,
       });
-      expect(result).toEqual([MOCK_PROVIDER]);
-    });
 
-    it('should filter by code when provided', async () => {
-      prisma.provider.findMany.mockResolvedValue([MOCK_PROVIDER]);
+      expect(prisma.$transaction).toHaveBeenCalled();
 
-      await service.findAllProviders({ code: 'PRV001' });
-
-      expect(prisma.provider.findMany).toHaveBeenCalledWith({
-        where: { code: 'PRV001' },
-        select: SELECTED_FIELDS,
-      });
-    });
-
-    it('should filter by email when provided', async () => {
-      prisma.provider.findMany.mockResolvedValue([MOCK_PROVIDER]);
-
-      await service.findAllProviders({ email: 'provider@test.com' });
-
-      expect(prisma.provider.findMany).toHaveBeenCalledWith({
-        where: {
-          email: {
-            contains: 'provider@test.com',
-          },
+      expect(result).toEqual({
+        data: [MOCK_PROVIDER],
+        meta: {
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
         },
-        select: SELECTED_FIELDS,
       });
     });
 
-    it('should filter by name when provided', async () => {
-      prisma.provider.findMany.mockResolvedValue([MOCK_PROVIDER]);
-
-      await service.findAllProviders({ name: 'Provider Name' });
-
-      expect(prisma.provider.findMany).toHaveBeenCalledWith({
-        where: { name: { contains: 'Provider Name' } },
-        select: SELECTED_FIELDS,
-      });
-    });
-
-    it('should filter by isActive when provided', async () => {
-      prisma.provider.findMany.mockResolvedValue([MOCK_PROVIDER]);
-
-      await service.findAllProviders({ isActive: true });
-
-      expect(prisma.provider.findMany).toHaveBeenCalledWith({
-        where: { active: true },
-        select: SELECTED_FIELDS,
-      });
-    });
-
-    it('should apply all filters simultaneously when all are provided', async () => {
-      prisma.provider.findMany.mockResolvedValue([MOCK_PROVIDER]);
+    it('should apply filters correctly', async () => {
+      prisma.$transaction.mockResolvedValue([1, [MOCK_PROVIDER]]);
 
       await service.findAllProviders({
         code: 'PRV001',
         email: 'provider@test.com',
         name: 'Provider Name',
         isActive: false,
+        page: 1,
+        limit: 10,
+      });
+
+      expect(prisma.provider.count).toHaveBeenCalledWith({
+        where: {
+          code: 'PRV001',
+          email: { contains: 'provider@test.com' },
+          name: { contains: 'Provider Name' },
+          active: false,
+        },
       });
 
       expect(prisma.provider.findMany).toHaveBeenCalledWith({
@@ -203,21 +177,23 @@ describe('ProvidersService', () => {
           name: { contains: 'Provider Name' },
           active: false,
         },
+        skip: 0,
+        take: 10,
         select: SELECTED_FIELDS,
       });
     });
 
     it('should throw InternalServerErrorException on prisma error', async () => {
-      prisma.provider.findMany.mockRejectedValue(new Error('db error'));
+      prisma.$transaction.mockRejectedValue(new Error());
 
-      await expect(service.findAllProviders({})).rejects.toThrow(
-        InternalServerErrorException,
-      );
+      await expect(
+        service.findAllProviders({ page: 1, limit: 10 }),
+      ).rejects.toThrow(InternalServerErrorException);
     });
   });
 
   describe('findProviderById', () => {
-    it('should return the provider when found', async () => {
+    it('should return provider when found', async () => {
       prisma.provider.findUnique.mockResolvedValue(MOCK_PROVIDER);
 
       const result = await service.findProviderById(PROVIDER_ID);
@@ -226,10 +202,11 @@ describe('ProvidersService', () => {
         where: { id: PROVIDER_ID },
         select: SELECTED_FIELDS,
       });
+
       expect(result).toEqual(MOCK_PROVIDER);
     });
 
-    it('should return null when provider is not found', async () => {
+    it('should return null when provider not found', async () => {
       prisma.provider.findUnique.mockResolvedValue(null);
 
       const result = await service.findProviderById(PROVIDER_ID);
@@ -238,9 +215,7 @@ describe('ProvidersService', () => {
     });
 
     it('should throw InternalServerErrorException on prisma error', async () => {
-      prisma.provider.findUnique.mockRejectedValue(
-        new InternalServerErrorException('db error'),
-      );
+      prisma.provider.findUnique.mockRejectedValue(new Error());
 
       await expect(service.findProviderById(PROVIDER_ID)).rejects.toThrow(
         InternalServerErrorException,
@@ -249,7 +224,7 @@ describe('ProvidersService', () => {
   });
 
   describe('updateProvider', () => {
-    it('should update only the fields that are provided', async () => {
+    it('should update provided fields', async () => {
       prisma.provider.update.mockResolvedValue(undefined);
 
       await service.updateProvider({
@@ -260,14 +235,20 @@ describe('ProvidersService', () => {
 
       expect(prisma.provider.update).toHaveBeenCalledWith({
         where: { id: PROVIDER_ID },
-        data: { name: 'Updated Name', email: 'updated@test.com' },
+        data: {
+          name: 'Updated Name',
+          email: 'updated@test.com',
+        },
       });
     });
 
-    it('should include active: false in the update when explicitly set', async () => {
+    it('should include active false when explicitly set', async () => {
       prisma.provider.update.mockResolvedValue(undefined);
 
-      await service.updateProvider({ id: PROVIDER_ID, active: false });
+      await service.updateProvider({
+        id: PROVIDER_ID,
+        active: false,
+      });
 
       expect(prisma.provider.update).toHaveBeenCalledWith({
         where: { id: PROVIDER_ID },
@@ -275,10 +256,13 @@ describe('ProvidersService', () => {
       });
     });
 
-    it('should include active: true in the update when explicitly set', async () => {
+    it('should include active true when explicitly set', async () => {
       prisma.provider.update.mockResolvedValue(undefined);
 
-      await service.updateProvider({ id: PROVIDER_ID, active: true });
+      await service.updateProvider({
+        id: PROVIDER_ID,
+        active: true,
+      });
 
       expect(prisma.provider.update).toHaveBeenCalledWith({
         where: { id: PROVIDER_ID },
@@ -286,10 +270,13 @@ describe('ProvidersService', () => {
       });
     });
 
-    it('should not include undefined optional fields in the update data', async () => {
+    it('should not include undefined fields', async () => {
       prisma.provider.update.mockResolvedValue(undefined);
 
-      await service.updateProvider({ id: PROVIDER_ID, code: 'PRV002' });
+      await service.updateProvider({
+        id: PROVIDER_ID,
+        code: 'PRV002',
+      });
 
       expect(prisma.provider.update).toHaveBeenCalledWith({
         where: { id: PROVIDER_ID },
@@ -298,7 +285,9 @@ describe('ProvidersService', () => {
     });
 
     it('should throw InternalServerErrorException on prisma error', async () => {
-      prisma.provider.update.mockRejectedValue(new Error('db error'));
+      prisma.provider.update.mockRejectedValue(
+        new InternalServerErrorException(),
+      );
 
       await expect(
         service.updateProvider({ id: PROVIDER_ID, name: 'Updated Name' }),

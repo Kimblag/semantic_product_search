@@ -12,22 +12,23 @@ import { MatchingService } from 'src/matching/matching.service';
 import { MatchingResultDocument } from 'src/matching/schemas/requirement-root-document.schema';
 import { QueueService } from 'src/queue/queue.service';
 import { RequirementItem } from 'src/requirements/types/requirement-item.type';
-import { PrismaService } from '../prisma/prisma.service';
+
+import { flattenRequirementsForCsv } from 'src/common/mappers/requirement-to-csv.mapper';
+import { PassThrough } from 'stream';
+import { CsvDataRow } from 'src/csv/types/requirement-export.type';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ProcessRequirementsInput } from '../inputs/process-requirement.input';
+import { RequirementFilteredItem } from '../types/requirement-history.type';
 import {
   GetAdminHistoryQueryDto,
   GetHistoryQueryDto,
-} from './dtos/get-history-query.dto';
+} from '../dtos/get-history-query.dto';
 import {
   Match,
   RequirementMatchingResponseDto,
   ResultEntry,
-} from './dtos/requirement-matchig-response.dto';
-import { RequirementResponseDto } from './dtos/requirement-response.dto';
-import { ProcessRequirementsInput } from './inputs/process-requirement.input';
-import { RequirementFilteredItem } from './types/requirement-history.type';
-import { flattenRequirementsForCsv } from 'src/common/mappers/requirement-to-csv.mapper';
-import { PassThrough } from 'stream';
-import { CsvDataRow } from 'src/csv/types/requirement-export.type';
+} from '../dtos/requirement-matchig-response.dto';
+import { RequirementResponseDto } from '../dtos/requirement-response.dto';
 
 @Injectable()
 export class RequirementsService {

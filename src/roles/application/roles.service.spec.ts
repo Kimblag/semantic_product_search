@@ -18,7 +18,6 @@ const MOCK_ROLE_LIST = {
   description: 'Administrator role',
 };
 
-// Shape returned by Prisma — permissions are nested under a join table
 const MOCK_ROLE_PRISMA = {
   id: ROLE_ID,
   name: 'Admin',
@@ -34,7 +33,6 @@ const MOCK_ROLE_PRISMA = {
   ],
 };
 
-// Shape after the service flattens the join table
 const MOCK_ROLE_DETAIL = {
   id: ROLE_ID,
   name: 'Admin',
@@ -108,7 +106,7 @@ describe('RolesService', () => {
     });
 
     it('should throw InternalServerErrorException on prisma error', async () => {
-      prisma.role.findMany.mockRejectedValue(new Error('db error'));
+      prisma.role.findMany.mockRejectedValue(new Error());
 
       await expect(service.findAllRoles()).rejects.toThrow(
         InternalServerErrorException,
@@ -117,8 +115,7 @@ describe('RolesService', () => {
   });
 
   describe('findRoleById', () => {
-    it('should return the role with flattened permissions when found', async () => {
-      // Prisma returns nested join-table shape; service flattens it
+    it('should return role with flattened permissions', async () => {
       prisma.role.findUnique.mockResolvedValue(MOCK_ROLE_PRISMA);
 
       const result = await service.findRoleById(ROLE_ID);
@@ -127,10 +124,11 @@ describe('RolesService', () => {
         where: { id: ROLE_ID },
         select: FIND_UNIQUE_SELECT,
       });
+
       expect(result).toEqual(MOCK_ROLE_DETAIL);
     });
 
-    it('should return null when role is not found', async () => {
+    it('should return null if role not found', async () => {
       prisma.role.findUnique.mockResolvedValue(null);
 
       const result = await service.findRoleById(ROLE_ID);
@@ -138,7 +136,7 @@ describe('RolesService', () => {
       expect(result).toBeNull();
     });
 
-    it('should return role with empty permissions array when role has no permissions', async () => {
+    it('should return role with empty permissions when none exist', async () => {
       prisma.role.findUnique.mockResolvedValue({
         ...MOCK_ROLE_PRISMA,
         permissions: [],
@@ -146,11 +144,14 @@ describe('RolesService', () => {
 
       const result = await service.findRoleById(ROLE_ID);
 
-      expect(result).toEqual({ ...MOCK_ROLE_DETAIL, permissions: [] });
+      expect(result).toEqual({
+        ...MOCK_ROLE_DETAIL,
+        permissions: [],
+      });
     });
 
     it('should throw InternalServerErrorException on prisma error', async () => {
-      prisma.role.findUnique.mockRejectedValue(new Error('db error'));
+      prisma.role.findUnique.mockRejectedValue(new Error());
 
       await expect(service.findRoleById(ROLE_ID)).rejects.toThrow(
         InternalServerErrorException,
