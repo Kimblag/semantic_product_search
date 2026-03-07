@@ -26,6 +26,7 @@ import { UpdateUserRolesInput } from '../application/inputs/update-user-roles.in
 import { UsersService } from '../application/users.service';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { GetUsersQueryDto } from '../dtos/get-user-query.dto';
+import { CurrentUserDto } from '../dtos/current-user.dto';
 import { UpdateUserEmailDto } from '../dtos/update-user-email.dto';
 import { UpdateUserNameDto } from '../dtos/update-user-name.dto';
 import { UpdateUserRolesDto } from '../dtos/update-user-roles.dto';
@@ -35,6 +36,14 @@ import { UserResponseDto } from '../dtos/user-response.dto';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  // current authenticated user (minimal profile for session/authorization checks)
+  @Roles(Role.EXECUTIVE, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Get('me')
+  async findMe(@User() user: JwtPayload): Promise<CurrentUserDto> {
+    return this.usersService.findCurrentUser(user.sub);
+  }
 
   // create user
   @Roles(Role.ADMIN)

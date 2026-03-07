@@ -15,6 +15,7 @@ import { AuditService } from 'src/audit/audit.service';
 import { AuditAction } from 'src/audit/enums/audit-action.enum';
 import appConfig from 'src/config/app.config';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CurrentUserDto } from '../dtos/current-user.dto';
 import { UserResponseDto } from '../dtos/user-response.dto';
 import { CreateUserInput } from './inputs/create-user.input';
 import { DeactivateUserInput } from './inputs/deactivate-user-input';
@@ -261,6 +262,50 @@ export class UsersService {
         excludeExtraneousValues: true,
       });
     } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
+  }
+
+  async findCurrentUser(userId: string): Promise<CurrentUserDto> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roles: {
+            select: {
+              rol: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('Resource not found.');
+      }
+
+      return plainToInstance(
+        CurrentUserDto,
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          roles: user.roles.map((item) => item.rol.name),
+        },
+        {
+          excludeExtraneousValues: true,
+        },
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Internal server error.');
     }
   }

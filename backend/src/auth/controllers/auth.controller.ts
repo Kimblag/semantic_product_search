@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   HttpCode,
@@ -30,6 +31,36 @@ import { JwtPayload } from '../interfaces/jwt-payload.interface';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  private getRefreshTokenFromRequest(
+    request: Request,
+    dto?: RefreshTokenDto,
+  ): string {
+    if (dto?.refreshToken) {
+      return dto.refreshToken;
+    }
+
+    const cookieHeader = request.headers.cookie;
+    if (!cookieHeader) {
+      throw new BadRequestException('Refresh token is required.');
+    }
+
+    const refreshCookie = cookieHeader
+      .split(';')
+      .map((cookie) => cookie.trim())
+      .find((cookie) => cookie.startsWith('refreshToken='));
+
+    if (!refreshCookie) {
+      throw new BadRequestException('Refresh token is required.');
+    }
+
+    const [, token] = refreshCookie.split('=');
+    if (!token) {
+      throw new BadRequestException('Refresh token is required.');
+    }
+
+    return decodeURIComponent(token);
+  }
 
   // add throttle to login endpoint, max 5 requests per minute
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -70,8 +101,9 @@ export class AuthController {
   ): Promise<Response> {
     const ip: string = request.ip;
     const userAgent: string = request.headers['user-agent'] || undefined;
+    const oldRefreshToken = this.getRefreshTokenFromRequest(request, dto);
     const input: RefreshTokenInput = {
-      oldToken: dto.refreshToken,
+      oldToken: oldRefreshToken,
       ip,
       ua: userAgent,
     };
@@ -90,8 +122,18 @@ export class AuthController {
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('logout')
-  async logout(@Body() dto: RefreshTokenDto) {
-    await this.authService.revokeTokenByToken(dto.refreshToken);
+  async logout(
+    @Body() dto: RefreshTokenDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = this.getRefreshTokenFromRequest(request, dto);
+    await this.authService.revokeTokenByToken(refreshToken);
+    response.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
   }
 
   // change password
