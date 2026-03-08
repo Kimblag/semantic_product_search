@@ -161,8 +161,6 @@ export class UsersService {
       whereClause.active = input.isActive;
     }
 
-    console.log('whereClause', whereClause);
-
     try {
       const [total, users] = await this.prisma.$transaction([
         this.prisma.user.count({ where: whereClause }),
