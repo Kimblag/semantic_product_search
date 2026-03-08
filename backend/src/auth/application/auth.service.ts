@@ -78,13 +78,12 @@ export class AuthService {
     sessionId: string,
     ip?: string,
     ua?: string,
-    jtiRefresh?: string,
   ): Promise<string> {
     const expireInSeconds = this.getRefreshExpirySeconds();
     const nowInMs = Date.now();
     const expiresAt = new Date(nowInMs + expireInSeconds * 1000);
 
-    const jti = jtiRefresh ? jtiRefresh : crypto.randomUUID();
+    const jti = sessionId;
 
     const payload: JwtPayloadRefresh = {
       sub: userId,

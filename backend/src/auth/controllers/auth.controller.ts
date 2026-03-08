@@ -123,12 +123,11 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('logout')
   async logout(
-    @Body() dto: RefreshTokenDto,
-    @Req() request: Request,
+    @User() user: JwtPayload,
     @Res({ passthrough: true }) response: Response,
-  ) {
-    const refreshToken = this.getRefreshTokenFromRequest(request, dto);
-    await this.authService.revokeTokenByToken(refreshToken);
+  ): Promise<void> {
+    await this.authService.revokeAllUserTokens(user.sub);
+
     response.clearCookie('refreshToken', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

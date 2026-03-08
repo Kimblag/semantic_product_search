@@ -25,7 +25,6 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // verify if is a public route
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -35,18 +34,13 @@ export class AuthGuard implements CanActivate {
       return true;
     }
 
-    // get the request object from the execution context
     const request = context.switchToHttp().getRequest<Request>();
-
-    // get the authorization header from the request
     const token = this.extractTokenFromHeader(request);
 
-    // Check if there is an authorization header, if not throw UnauthorizedException
     if (!token) {
       throw new UnauthorizedException('Invalid authorization header');
     }
 
-    // try to verfy the token with jwt service if the token is valid return true otherwise throw UnauthorizedException
     let payload: JwtPayload;
     try {
       payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
@@ -57,58 +51,52 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      // Search if user is active and get current roles
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
+      const session = await this.prisma.refreshToken.findUnique({
+        where: { jti: payload.sid },
         select: {
-          active: true,
-          roles: {
+          revoked: true,
+          user: {
             select: {
-              rol: {
-                select: { name: true },
+              active: true,
+              roles: {
+                select: {
+                  rol: {
+                    select: { name: true },
+                  },
+                },
               },
             },
           },
         },
       });
 
-      // if user is deactivated: block
-      if (!user || !user.active) {
+      if (!session || session.revoked) {
+        throw new UnauthorizedException('Session has been revoked');
+      }
+
+      if (!session.user || !session.user.active) {
         throw new UnauthorizedException('User account is deactivated');
       }
 
-      // update roles
-      payload.roles = user.roles.map((r) => r.rol.name);
+      payload.roles = session.user.roles.map((r) => r.rol.name);
     } catch (error) {
       if (error instanceof UnauthorizedException) {
-        throw error; // re-throw if it's an UnauthorizedException
+        throw error;
       }
-      // fallback for any other errors (e.g., database issues)
-      throw new UnauthorizedException('Unable to verify user status');
+      throw new UnauthorizedException('Unable to verify session status');
     }
 
     request.user = payload;
-
     return true;
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {
     const authHeader = request.headers.authorization;
+    if (!authHeader) return undefined;
 
-    // if there is no authorization header return undefined
-    if (!authHeader) {
-      return undefined;
-    }
-
-    // split the authorization header by space and return the second part which is the token
     const [type, token] = authHeader.split(' ');
+    if (type !== 'Bearer') return undefined;
 
-    // check if the type is bearer
-    if (type !== 'Bearer') {
-      return undefined;
-    }
-
-    // return the token
     return token;
   }
 }

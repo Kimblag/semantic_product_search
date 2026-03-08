@@ -418,6 +418,8 @@ export class UsersService {
       throw new InternalServerErrorException('Internal server error.');
     }
 
+    await this.revokeAllUserTokens(input.userId); // revoke all tokens to apply new roles on next login
+
     await this.auditService.log({
       action: AuditAction.ROLES_UPDATED,
       userId: input.userId,
@@ -527,5 +529,28 @@ export class UsersService {
     } catch {
       throw new InternalServerErrorException('Internal server error.');
     }
+  }
+
+  async revokeAllUserTokens(userId: string): Promise<void> {
+    try {
+      await this.prisma.refreshToken.updateMany({
+        where: {
+          userId,
+          revoked: false,
+        },
+        data: {
+          revoked: true,
+        },
+      });
+    } catch {
+      throw new InternalServerErrorException('Internal server error.');
+    }
+    await this.auditService.log({
+      action: AuditAction.REFRESH_TOKEN_REVOKED,
+      userId,
+      metadata: {
+        reason: 'All tokens revoked for user due to password change or reset',
+      },
+    });
   }
 }
