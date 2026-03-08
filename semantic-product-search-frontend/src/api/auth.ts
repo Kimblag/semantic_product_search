@@ -122,6 +122,10 @@ export async function restoreSession(): Promise<string | null> {
   }
 }
 
+export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
+  await api.patch(`/auth/${userId}/reset-password`, { newPassword });
+}
+
 api.interceptors.request.use((config) => {
   if (!isAuthRoute(config.url) && currentAccessToken) {
     config.headers.Authorization = `Bearer ${currentAccessToken}`;

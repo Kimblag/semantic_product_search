@@ -1,4 +1,4 @@
-import { Edit, Eye, Plus, Search, X } from "lucide-react";
+import { Eye, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -21,6 +21,7 @@ import { fetchUsersList } from "@/api/users";
 
 import type { UserListItem } from "@/types/user";
 import type React from "react";
+import { Link } from "react-router-dom";
 
 const ROWS_PER_PAGE = 10;
 
@@ -136,10 +137,13 @@ export function UsersPage() {
           </p>
         </div>
 
-        <Button className="gap-2">
+        <Link
+          to="/users/create"
+          className="gap-2 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+        >
           <Plus className="h-4 w-4" />
           Create User
-        </Button>
+        </Link>
       </div>
 
       {/* Main Card*/}
@@ -194,7 +198,6 @@ export function UsersPage() {
             </div>
           </div>
         </CardHeader>
-
 
         <CardContent className="flex flex-1 flex-col p-0 overflow-hidden">
           <div className="flex-1 overflow-auto">
@@ -291,23 +294,13 @@ export function UsersPage() {
 
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 h-8"
+                        <Link
+                          to={`/users/details/${user.id}`}
+                          className="gap-2 h-8 inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-sm font-medium text-primary hover:bg-primary/20"
                         >
                           <Eye className="h-3.5 w-3.5" />
                           <span>View</span>
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 h-8"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                          <span>Edit</span>
-                        </Button>
+                        </Link>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -10,6 +10,8 @@ import { RoleDetailPage } from "../pages/Roles/RoleDetailPage";
 import { RolesPage } from "../pages/Roles/RolesPage";
 import { UsersPage } from "../pages/Users/UsersPage";
 import { ClientsPage } from "../pages/Clients/ClientsPage";
+import { CreateUserPage } from "@/pages/Users/CreateUserPage";
+import { UserDetailPage } from "@/pages/Users/UserDetailPage";
 
 export function AppRouter() {
   return (
@@ -27,9 +29,13 @@ export function AppRouter() {
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={["Admin", "Superuser"]} />}>
+        <Route
+          element={<ProtectedRoute allowedRoles={["Admin", "Superuser"]} />}
+        >
           <Route element={<MainLayout />}>
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/users/create" element={<CreateUserPage />} />
+            <Route path="/users/details/:userId" element={<UserDetailPage />} />
             <Route path="/roles" element={<RolesPage />} />
             <Route path="/roles/:roleId" element={<RoleDetailPage />} />
           </Route>
