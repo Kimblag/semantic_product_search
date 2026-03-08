@@ -21,7 +21,6 @@ import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 import { AuditService } from 'src/audit/audit.service';
 import { AuditAction } from 'src/audit/enums/audit-action.enum';
-import { GetUserQueryInput } from 'src/users/application/inputs/get-user-query.input';
 import { FailedLoginService } from './failed-login.service';
 import { ChangeUserPasswordInput } from './inputs/change-user-password.input';
 import { LoginInput } from './inputs/login.input';
@@ -53,12 +52,14 @@ export class AuthService {
   private async generateAccessToken(
     userId: string,
     roles: string[],
+    sessionId: string,
   ): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     const payload: JwtPayload = {
       sub: userId,
       roles,
       iat: now,
+      sid: sessionId,
     };
     try {
       return await this.jwtService.signAsync(payload, {
@@ -74,6 +75,7 @@ export class AuthService {
 
   private async generateRefreshToken(
     userId: string,
+    sessionId: string,
     ip?: string,
     ua?: string,
     jtiRefresh?: string,
@@ -180,8 +182,18 @@ export class AuthService {
     const userRoles = user.roles.map((r) => r.rol.name);
 
     // create jwt access token and refresh token
-    const accessToken = await this.generateAccessToken(user.id, userRoles);
-    const refreshToken = await this.generateRefreshToken(user.id, ip, ua);
+    const sessionId = crypto.randomUUID().toString();
+    const accessToken = await this.generateAccessToken(
+      user.id,
+      userRoles,
+      sessionId,
+    );
+    const refreshToken = await this.generateRefreshToken(
+      user.id,
+      sessionId,
+      ip,
+      ua,
+    );
 
     // reset failed attempts on successful login
     this.failedLoginService.resetAttempts(email);
@@ -253,9 +265,9 @@ export class AuthService {
     // generate new refresh token
     const newToken = await this.generateRefreshToken(
       tokenRecord.userId,
+      newJti,
       input.ip,
       input.ua,
-      newJti,
     );
 
     // generate new access token
@@ -268,6 +280,7 @@ export class AuthService {
     const accessToken = await this.generateAccessToken(
       user.id,
       user.roles.map((r) => r.rol.name),
+      newJti,
     );
 
     await this.auditService.log({

@@ -156,9 +156,12 @@ export class UsersService {
       ];
     }
 
+    // if active is undefined we show all!
     if (input.isActive !== undefined) {
       whereClause.active = input.isActive;
     }
+
+    console.log('whereClause', whereClause);
 
     try {
       const [total, users] = await this.prisma.$transaction([

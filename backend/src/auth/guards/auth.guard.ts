@@ -1,25 +1,28 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import
+  {
+    CanActivate,
+    ExecutionContext,
+    Inject,
+    Injectable,
+    UnauthorizedException,
+  } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
+import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
-import { JwtPayload } from '../interfaces/jwt-payload.interface';
-import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import appConfig from 'src/config/app.config';
-import { ConfigType } from '@nestjs/config';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly reflector: Reflector,
     @Inject(appConfig.KEY)
     private readonly config: ConfigType<typeof appConfig>,
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -44,17 +47,49 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid authorization header');
     }
 
-    // try to verfy the token  with jwt service if the token is valid return true otherwise throw UnauthorizedException
+    // try to verfy the token with jwt service if the token is valid return true otherwise throw UnauthorizedException
+    let payload: JwtPayload;
     try {
-      const payload: JwtPayload = await this.jwtService.verifyAsync(token, {
+      payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
         secret: this.config.jwt.secret,
       });
-      request.user = payload;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    // return
+    try {
+      // Search if user is active and get current roles
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: {
+          active: true,
+          roles: {
+            select: {
+              rol: {
+                select: { name: true },
+              },
+            },
+          },
+        },
+      });
+
+      // if user is deactivated: block
+      if (!user || !user.active) {
+        throw new UnauthorizedException('User account is deactivated');
+      }
+
+      // update roles
+      payload.roles = user.roles.map((r) => r.rol.name);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error; // re-throw if it's an UnauthorizedException
+      }
+      // fallback for any other errors (e.g., database issues)
+      throw new UnauthorizedException('Unable to verify user status');
+    }
+
+    request.user = payload;
+
     return true;
   }
 

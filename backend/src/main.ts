@@ -36,7 +36,7 @@ async function bootstrap() {
   // source: https://docs.nestjs.com/security/cors
   app.enableCors({
     origin: true, // only dev allows any origin
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
     credentials: true,
   });
   await app.listen(process.env.PORT ?? 3000);
