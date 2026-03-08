@@ -1,145 +1,188 @@
+import { Eye, RefreshCw, Shield } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAxiosErrorMessage, getAxiosStatus } from "../../api/errors";
-import { fetchRolesList } from "../../api/roles";
-import { ShieldIcon } from "../../components/icons";
-import type { RoleListItem } from "../../types/role";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+
+import { getAxiosErrorMessage, getAxiosStatus } from "@/api/errors";
+import { fetchRolesList } from "@/api/roles";
+
+import type { RoleListItem } from "@/types/role";
 
 function normalizeRoleName(name: string): string {
-	return name.trim().replace(/[_-]/g, " ").replace(/\s+/g, " ");
+  return name.trim().replace(/[_-]/g, " ").replace(/\s+/g, " ");
 }
 
 function getRolesErrorMessage(error: unknown): string {
-	const status = getAxiosStatus(error);
-	if (status === 403) {
-		return "You do not have permission to view roles.";
-	}
+  const status = getAxiosStatus(error);
+  if (status === 403) return "You do not have permission to view roles.";
 
-	const message = getAxiosErrorMessage(error);
-	if (message) return message;
+  const message = getAxiosErrorMessage(error);
+  if (message) return message;
 
-	return "Unable to load roles right now. Please try again.";
+  return "Unable to load roles right now. Please try again.";
 }
 
 export function RolesPage() {
-	const [roles, setRoles] = useState<RoleListItem[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [roles, setRoles] = useState<RoleListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-	const loadRoles = useCallback(async () => {
-		setIsLoading(true);
-		setErrorMessage(null);
+  const loadRoles = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const data = await fetchRolesList();
+      setRoles(data);
+    } catch (error) {
+      setErrorMessage(getRolesErrorMessage(error));
+      setRoles([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-		try {
-			const data = await fetchRolesList();
-			setRoles(data);
-		} catch (error) {
-			setErrorMessage(getRolesErrorMessage(error));
-			setRoles([]);
-		} finally {
-			setIsLoading(false);
-		}
-	}, []);
+  useEffect(() => {
+    void loadRoles();
+  }, [loadRoles]);
 
-	useEffect(() => {
-		void loadRoles();
-	}, [loadRoles]);
+  const totalRoles = useMemo(() => roles.length, [roles]);
 
-	const totalRoles = useMemo(() => roles.length, [roles.length]);
+  return (
+    <section className="flex h-full flex-col gap-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-semibold">Roles</h1>
+          <p className="text-sm text-muted-foreground">
+            Fixed role catalog for access control and permissions.
+          </p>
+        </div>
 
-	return (
-		<section className="space-y-6">
-			<header className="flex flex-wrap items-end justify-between gap-3">
-				<div>
-					<h1 className="text-2xl font-bold text-pine-teal-300 md:text-3xl">Roles</h1>
-					<p className="mt-1 text-sm text-pine-teal-600">
-						Fixed role catalog for access control and permissions.
-					</p>
-				</div>
+        <Button
+          variant="outline"
+          onClick={() => void loadRoles()}
+          disabled={isLoading}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          {isLoading ? "Refreshing..." : "Refresh"}
+        </Button>
+      </div>
 
-				<button
-					type="button"
-					onClick={() => void loadRoles()}
-					disabled={isLoading}
-					className="inline-flex items-center gap-2 rounded-xl border border-pine-teal-600/20 bg-white px-4 py-2 text-sm font-semibold text-pine-teal-400 transition hover:bg-dust-grey-900 disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{isLoading ? "Refreshing..." : "Refresh list"}
-				</button>
-			</header>
+      <aside className="rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
+        Roles are fixed in this system. This module is read-only and intended
+        for visibility of role definitions and their permission scope.
+      </aside>
 
-			<section className="overflow-hidden rounded-2xl border border-pine-teal-600/10 bg-white shadow-[0_12px_28px_-20px_rgba(31,46,38,0.45)]">
-				<div className="overflow-x-auto">
-					<table className="min-w-full text-left text-sm">
-						<thead className="bg-dust-grey-900 text-xs uppercase tracking-wider text-pine-teal-600">
-							<tr>
-								<th className="px-6 py-4">Role</th>
-								<th className="px-6 py-4">Description</th>
-								<th className="px-6 py-4 text-right">Detail</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-pine-teal-600/10">
-							{isLoading && (
-								<tr>
-									<td className="px-6 py-5 text-pine-teal-600" colSpan={3}>
-										Loading roles...
-									</td>
-								</tr>
-							)}
+      {/* Card Container */}
+      <Card className="flex flex-1 flex-col overflow-hidden">
+        <CardHeader className="sr-only">
+          <h2 className="text-lg font-semibold">Roles List</h2>
+        </CardHeader>
 
-							{!isLoading && errorMessage && (
-								<tr>
-									<td className="px-6 py-5 text-hunter-green-300" colSpan={3}>
-										{errorMessage}
-									</td>
-								</tr>
-							)}
+        <CardContent className="flex flex-1 flex-col p-0 overflow-hidden">
+          <div className="flex-1 overflow-auto">
+            <Table>
+              <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
+                <TableRow>
+                  <TableHead className="w-75">Role</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="w-30 text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
 
-							{!isLoading && !errorMessage && roles.length === 0 && (
-								<tr>
-									<td className="px-6 py-5 text-pine-teal-600" colSpan={3}>
-										No roles found.
-									</td>
-								</tr>
-							)}
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="h-24 text-center">
+                      Loading roles...
+                    </TableCell>
+                  </TableRow>
+                )}
 
-							{!isLoading &&
-								!errorMessage &&
-								roles.map((role) => (
-									<tr key={role.id} className="hover:bg-dust-grey-900/35 transition-colors">
-										<td className="px-6 py-5 whitespace-nowrap">
-											<div className="flex items-center gap-3">
-												<span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-fern-700/15 text-fern-500">
-													<ShieldIcon className="h-4 w-4" aria-hidden="true" />
-												</span>
-												<span className="font-semibold text-pine-teal-400">
-													{normalizeRoleName(role.name)}
-												</span>
-											</div>
-										</td>
-										<td className="px-6 py-5 text-pine-teal-600">{role.description}</td>
-										<td className="px-6 py-5 text-right">
-											<Link
-												to={`/roles/${role.id}`}
-												className="text-sm font-semibold text-fern-500 hover:text-fern-400"
-											>
-												Open detail
-											</Link>
-										</td>
-									</tr>
-								))}
-						</tbody>
-					</table>
-				</div>
+                {!isLoading && errorMessage && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="h-24 text-center text-destructive"
+                    >
+                      {errorMessage}
+                    </TableCell>
+                  </TableRow>
+                )}
 
-				<footer className="border-t border-pine-teal-600/10 bg-dust-grey-900/55 px-6 py-3 text-xs text-pine-teal-600">
-					Showing {totalRoles} {totalRoles === 1 ? "role" : "roles"}.
-				</footer>
-			</section>
+                {!isLoading && !errorMessage && roles.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      No roles found.
+                    </TableCell>
+                  </TableRow>
+                )}
 
-			<aside className="rounded-xl border border-fern-700/25 bg-fern-700/10 p-4 text-sm text-fern-300">
-				Roles are fixed in this system. This module is read-only and intended for
-				visibility of role definitions and their permission scope.
-			</aside>
-		</section>
-	);
+                {!isLoading &&
+                  !errorMessage &&
+                  roles.map((role) => (
+                    <TableRow key={role.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                            {/* Reemplacé ShieldIcon por la importación de lucide-react para asegurar consistencia si no existía el componente */}
+                            <Shield className="h-4 w-4" aria-hidden="true" />
+                          </div>
+                          <span className="font-semibold truncate">
+                            {normalizeRoleName(role.name)}
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="text-muted-foreground">
+                        {role.description}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 h-8"
+                          asChild
+                        >
+                          <Link
+                            to={`/roles/${role.id}`}
+                            title="View role details"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>View</span>
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Footer Area */}
+          <div className="border-t px-6 py-4 bg-card text-right">
+            <span className="text-sm text-muted-foreground">
+              Showing {totalRoles} {totalRoles === 1 ? "role" : "roles"}.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+  );
 }
