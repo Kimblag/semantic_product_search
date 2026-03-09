@@ -30,7 +30,7 @@ export function AppRouter() {
         </Route>
 
         <Route
-          element={<ProtectedRoute allowedRoles={["Admin", "Superuser"]} />}
+          element={<ProtectedRoute allowedRoles={["Admin"]} />}
         >
           <Route element={<MainLayout />}>
             <Route path="/users" element={<UsersPage />} />

@@ -19,7 +19,11 @@ type MenuItem = {
   to: string;
   Icon: (props: SVGProps<SVGSVGElement>) => JSX.Element;
 };
-type MenuSection = { title: string; items: MenuItem[] };
+type MenuSection = {
+  title: string;
+  items: MenuItem[];
+  allowedRoles?: string[];
+};
 
 const menuSections: MenuSection[] = [
   {
@@ -33,6 +37,7 @@ const menuSections: MenuSection[] = [
   },
   {
     title: "Access",
+    allowedRoles: ["Admin"],
     items: [
       { label: "Users", to: "/users", Icon: UsersIcon },
       { label: "Roles", to: "/roles", Icon: ShieldIcon },
@@ -45,7 +50,7 @@ const menuSections: MenuSection[] = [
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const { signOut } = useAuth();
+  const { signOut, hasAnyRole } = useAuth();
   const navigate = useNavigate();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -59,6 +64,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     }
   }, [signOut, navigate]);
 
+  // filter sections based on user roles if needed
+  const visibleSections = useMemo(() => {
+    return menuSections.filter((section) => {
+      if (!section.allowedRoles || section.allowedRoles.length === 0) {
+        return true;
+      }
+      return hasAnyRole(section.allowedRoles);
+    });
+  }, [hasAnyRole]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border px-6 py-6">
@@ -71,7 +86,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-6">
-        {menuSections.map((section) => (
+        {visibleSections.map((section) => (
           <section key={section.title}>
             <p className="px-3 text-xs font-semibold uppercase text-muted-foreground/70">
               {section.title}
