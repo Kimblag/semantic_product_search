@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -45,6 +46,19 @@ export class UsersService {
     private readonly config: ConfigType<typeof appConfig>,
     private readonly auditService: AuditService,
   ) {}
+
+  private async ensureNotRootUser(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
+    if (user?.email === 'root@system.com') {
+      throw new ForbiddenException(
+        'The system root user cannot be modified or deactivated.',
+      );
+    }
+  }
 
   /**
    * Creates a new user with associated roles.
@@ -342,6 +356,7 @@ export class UsersService {
 
   // modify email of a user (ADMIN)
   async updateUserEmail(input: UpdateUserEmailInput): Promise<void> {
+    await this.ensureNotRootUser(input.userId);
     try {
       await this.prisma.user.update({
         where: {
@@ -376,6 +391,7 @@ export class UsersService {
 
   // manage user roles (ADMIN)
   async updateUserRoles(input: UpdateUserRolesInput): Promise<void> {
+    await this.ensureNotRootUser(input.userId);
     const uniqueRoles = [...new Set(input.roles)];
 
     const rolesCount = await this.prisma.role.count({
@@ -431,6 +447,7 @@ export class UsersService {
 
   // Deactivate user account (ADMIN)
   async deactivateUser(input: DeactivateUserInput): Promise<void> {
+    await this.ensureNotRootUser(input.userId);
     try {
       await this.prisma.user.update({
         where: {

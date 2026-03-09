@@ -95,6 +95,8 @@ export function UserDetailPage() {
   const [passwordError, setPasswordError] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
+  const isRootUser = user?.email === "root@system.com";
+
   const loadData = useCallback(async () => {
     if (!userId) return;
     setIsLoading(true);
@@ -375,6 +377,7 @@ export function UserDetailPage() {
                         size="sm"
                         className="h-8 gap-2"
                         onClick={() => setIsEditingName(true)}
+                        disabled={isRootUser}
                       >
                         <Edit2 className="h-3.5 w-3.5" /> Edit
                       </Button>
@@ -395,6 +398,7 @@ export function UserDetailPage() {
                         setEmailError("");
                         setIsEmailModalOpen(true);
                       }}
+                      disabled={isRootUser}
                     >
                       <Edit2 className="h-3.5 w-3.5" /> Edit
                     </Button>
@@ -410,7 +414,7 @@ export function UserDetailPage() {
                     <CardTitle>Assigned Roles</CardTitle>
                     <CardDescription>System access levels.</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" onClick={openRolesModal}>
+                  <Button variant="outline" size="sm" onClick={openRolesModal} disabled={isRootUser}>
                     Manage Roles
                   </Button>
                 </div>
@@ -486,7 +490,7 @@ export function UserDetailPage() {
                   variant={user.active ? "destructive" : "default"}
                   className="w-full gap-2 sm:w-auto"
                   onClick={handleToggleStatusClick}
-                  disabled={isUpdatingStatus}
+                  disabled={isUpdatingStatus || isRootUser}
                 >
                   {isUpdatingStatus ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
