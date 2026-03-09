@@ -12,6 +12,8 @@ import { UsersPage } from "../pages/Users/UsersPage";
 import { ClientsPage } from "../pages/Clients/ClientsPage";
 import { CreateUserPage } from "@/pages/Users/CreateUserPage";
 import { UserDetailPage } from "@/pages/Users/UserDetailPage";
+import { CreateProviderPage } from "@/pages/Providers/CreateProviderPage";
+import { ProviderDetailPage } from "@/pages/Providers/ProviderDetailPage";
 
 export function AppRouter() {
   return (
@@ -23,21 +25,24 @@ export function AppRouter() {
             <Route index element={<Navigate replace to="/dashboard" />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/requirements" element={<RequirementsPage />} />
-            <Route path="/providers" element={<ProvidersPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Route>
 
-        <Route
-          element={<ProtectedRoute allowedRoles={["Admin"]} />}
-        >
+        <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
           <Route element={<MainLayout />}>
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/create" element={<CreateUserPage />} />
             <Route path="/users/details/:userId" element={<UserDetailPage />} />
             <Route path="/roles" element={<RolesPage />} />
             <Route path="/roles/:roleId" element={<RoleDetailPage />} />
+            <Route path="/providers" element={<ProvidersPage />} />
+            <Route path="/providers/create" element={<CreateProviderPage />} />
+            <Route
+              path="/providers/details/:providerId"
+              element={<ProviderDetailPage />}
+            />
           </Route>
         </Route>
 

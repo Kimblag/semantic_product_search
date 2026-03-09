@@ -18,6 +18,7 @@ type MenuItem = {
   label: string;
   to: string;
   Icon: (props: SVGProps<SVGSVGElement>) => JSX.Element;
+  allowedRoles?: string[];
 };
 type MenuSection = {
   title: string;
@@ -31,7 +32,12 @@ const menuSections: MenuSection[] = [
     items: [
       { label: "Dashboard", to: "/dashboard", Icon: DashboardIcon },
       { label: "Requirements", to: "/requirements", Icon: RequirementIcon },
-      { label: "Providers", to: "/providers", Icon: ProviderIcon },
+      {
+        label: "Providers",
+        to: "/providers",
+        Icon: ProviderIcon,
+        allowedRoles: ["Admin"],
+      },
       { label: "Clients", to: "/clients", Icon: ClientIcon },
     ],
   },
@@ -66,12 +72,20 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   // filter sections based on user roles if needed
   const visibleSections = useMemo(() => {
-    return menuSections.filter((section) => {
-      if (!section.allowedRoles || section.allowedRoles.length === 0) {
-        return true;
-      }
-      return hasAnyRole(section.allowedRoles);
-    });
+    return menuSections
+      .filter((section) => {
+        if (!section.allowedRoles || section.allowedRoles.length === 0)
+          return true;
+        return hasAnyRole(section.allowedRoles);
+      })
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => {
+          if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
+          return hasAnyRole(item.allowedRoles);
+        }),
+      }))
+      .filter((section) => section.items.length > 0);
   }, [hasAnyRole]);
 
   return (

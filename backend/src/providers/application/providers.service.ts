@@ -11,6 +11,7 @@ import { CreateProviderInput } from './inputs/create-provider.input';
 import { GetProviderQueryInput } from './inputs/get-provider-query.input';
 import { UpdateProviderInput } from './inputs/update-provider.input';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class ProvidersService {
@@ -131,23 +132,27 @@ export class ProvidersService {
   // get by id
   async findProviderById(providerId: string): Promise<ProviderResponseDto> {
     try {
-      return await this.prisma.provider.findUnique({
-        where: {
-          id: providerId,
-        },
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          email: true,
-          telephone: true,
-          address: true,
-          active: true,
-          createdAt: true,
+      const provider = await this.prisma.provider.findUnique({
+        where: { id: providerId },
+        include: {
+          catalogProviderVersions: {
+            orderBy: { versionNumber: 'desc' },
+          },
         },
       });
-    } catch {
-      throw new InternalServerErrorException('Internal server error.');
+
+      if (!provider) {
+        throw new NotFoundException(`Provider with ID ${providerId} not found`);
+      }
+
+      return plainToInstance(ProviderResponseDto, provider, {
+        excludeExtraneousValues: true,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        'Error retrieving provider details',
+      );
     }
   }
 
