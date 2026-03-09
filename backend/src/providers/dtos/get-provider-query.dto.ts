@@ -17,6 +17,12 @@ export class GetProviderQueryDto extends PaginationQueryDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+
+    return undefined;
+  })
   isActive?: boolean = true;
 }

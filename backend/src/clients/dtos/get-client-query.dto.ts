@@ -14,6 +14,12 @@ export class GetClientQueryDto extends PaginationQueryDto {
   // add a default value of true for isActive
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+
+    return undefined;
+  })
   isActive?: boolean = true;
 }
