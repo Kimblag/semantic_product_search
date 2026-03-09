@@ -296,6 +296,7 @@ export function UsersPage() {
                       <div className="flex justify-end gap-2">
                         <Link
                           to={`/users/details/${user.id}`}
+                          title="View user details"
                           className="gap-2 h-8 inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-sm font-medium text-primary hover:bg-primary/20"
                         >
                           <Eye className="h-3.5 w-3.5" />
