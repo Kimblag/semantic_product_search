@@ -4,11 +4,11 @@ import {
   ArrowLeft,
   ChevronRight,
   Clock,
+  Download,
   FileCheck,
   FileText,
   FileUp,
   FileX,
-  Hash,
   Loader2,
   Mail,
   MapPin,
@@ -16,6 +16,7 @@ import {
   ShieldAlert,
   XCircle,
   LucideIcon,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,11 +40,20 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-
+import {
+  fetchProviderDetail,
+  updateProvider,
+  uploadProviderCatalog,
+  downloadProviderTemplate,
+} from "@/api/providers";
 import { getAxiosErrorMessage } from "@/api/errors";
-import { CatalogStatus, ProviderDetail } from "@/types/providers";
-import { fetchProviderDetail, updateProvider, uploadProviderCatalog } from '@/api/providers';
-
+import type { ProviderDetail, CatalogStatus } from "@/types/providers";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface StatusConfig {
   variant: "default" | "secondary" | "destructive" | "outline";
@@ -55,7 +65,7 @@ const CATALOG_STATUS_MAP: Record<CatalogStatus, StatusConfig> = {
   PROCESSING: {
     variant: "secondary",
     icon: Clock,
-    className: "bg-amber-500/10 text-amber-600 border-none",
+    className: "bg-amber-500/10 text-amber-600 border-none animate-pulse",
   },
   ACTIVE: {
     variant: "default",
@@ -84,25 +94,44 @@ export function ProviderDetailPage() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!providerId) return;
-    setIsLoading(true);
-    try {
-      const data = await fetchProviderDetail(providerId);
-      setProvider(data);
-    } catch (err) {
-      toast.error(
-        getAxiosErrorMessage(err) || "Failed to load provider details",
-      );
-      navigate("/providers");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [providerId, navigate]);
+  const loadData = useCallback(
+    async (showLoader = true) => {
+      if (!providerId) return;
+      if (showLoader) setIsLoading(true);
+      try {
+        const data = await fetchProviderDetail(providerId);
+        setProvider(data);
+      } catch (err) {
+        toast.error(
+          getAxiosErrorMessage(err) || "Failed to load provider details",
+        );
+        if (showLoader) navigate("/providers");
+      } finally {
+        if (showLoader) setIsLoading(false);
+      }
+    },
+    [providerId, navigate],
+  );
 
   useEffect(() => {
-    void loadData();
+    loadData(true);
   }, [loadData]);
+
+  useEffect(() => {
+    const isProcessing = provider?.catalogProviderVersions?.some(
+      (v) => v.status === "PROCESSING",
+    );
+
+    if (!isProcessing) return;
+
+    const intervalId: number = window.setInterval(() => {
+      loadData(false);
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [provider, loadData]);
 
   const handleToggleStatus = async () => {
     if (!provider || !providerId) return;
@@ -111,9 +140,7 @@ export function ProviderDetailPage() {
       const newStatus = !provider.active;
       await updateProvider(providerId, { active: newStatus });
       setProvider({ ...provider, active: newStatus });
-      toast.success(
-        `Provider ${newStatus ? "activated" : "deactivated"} successfully`,
-      );
+      toast.success(`Provider ${newStatus ? "activated" : "deactivated"}`);
     } catch (err) {
       toast.error(getAxiosErrorMessage(err) || "Update failed");
     } finally {
@@ -126,16 +153,11 @@ export function ProviderDetailPage() {
     const file = e.target.files?.[0];
     if (!file || !providerId) return;
 
-    if (!file.name.endsWith(".csv")) {
-      toast.error("Only CSV files are allowed");
-      return;
-    }
-
     setIsUploading(true);
     try {
       await uploadProviderCatalog(providerId, file);
-      toast.success("Catalog uploaded and processing started");
-      void loadData();
+      toast.info("Processing catalog...");
+      await loadData(false);
     } catch (err) {
       toast.error(getAxiosErrorMessage(err) || "Upload failed");
     } finally {
@@ -147,7 +169,6 @@ export function ProviderDetailPage() {
   const renderStatusBadge = (status: CatalogStatus): ReactElement => {
     const config = CATALOG_STATUS_MAP[status];
     const Icon = config.icon;
-
     return (
       <Badge
         variant={config.variant}
@@ -171,7 +192,7 @@ export function ProviderDetailPage() {
 
   return (
     <section className="flex flex-col gap-6 animate-rise">
-      {/* Breadcrumb */}
+      {/* BREADCRUMB */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link
           to="/providers"
@@ -183,7 +204,7 @@ export function ProviderDetailPage() {
         <span className="font-medium text-foreground">{provider.name}</span>
       </nav>
 
-      {/* Header */}
+      {/* HEADER */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
@@ -200,7 +221,7 @@ export function ProviderDetailPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            Provider unique code:{" "}
+            Code:{" "}
             <span className="font-mono font-bold text-foreground">
               {provider.code}
             </span>
@@ -216,20 +237,17 @@ export function ProviderDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Profile and Catalogs */}
+        {/* INFO & CATALOGS */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Provider Information</CardTitle>
-              <CardDescription>
-                Official contact and location details.
-              </CardDescription>
+              <CardTitle>Business Information</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2">
               <div className="flex items-start gap-3">
                 <Mail className="mt-1 h-4 w-4 text-primary" />
-                <div className="space-y-1">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase">
                     Email
                   </p>
                   <p className="text-sm font-medium">{provider.email}</p>
@@ -237,24 +255,22 @@ export function ProviderDetailPage() {
               </div>
               <div className="flex items-start gap-3">
                 <Phone className="mt-1 h-4 w-4 text-primary" />
-                <div className="space-y-1">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">
-                    Telephone
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase">
+                    Phone
                   </p>
                   <p className="text-sm font-medium">
-                    {provider.telephone || "Not provided"}
+                    {provider.telephone || "N/A"}
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-3 sm:col-span-2 border-t pt-4">
                 <MapPin className="mt-1 h-4 w-4 text-primary" />
-                <div className="space-y-1">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">
-                    Headquarters Address
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase">
+                    Address
                   </p>
-                  <p className="text-sm font-medium">
-                    {provider.address || "No address registered"}
-                  </p>
+                  <p className="text-sm font-medium">{provider.address}</p>
                 </div>
               </div>
             </CardContent>
@@ -265,50 +281,60 @@ export function ProviderDetailPage() {
               <div className="space-y-1">
                 <CardTitle>Catalog History</CardTitle>
                 <CardDescription>
-                  Managed CSV versions for semantic search.
+                  Upload CSV files to update the semantic database.
                 </CardDescription>
               </div>
-              <div className="relative">
-                <input
-                  type="file"
-                  id="catalog-upload"
-                  className="hidden"
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  disabled={isUploading || !provider.active}
-                />
+              <div className="flex gap-2">
                 <Button
-                  asChild
-                  variant="default"
-                  disabled={isUploading || !provider.active}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadProviderTemplate()}
+                  className="gap-2"
                 >
-                  <label
-                    htmlFor="catalog-upload"
-                    className="cursor-pointer gap-2"
-                  >
-                    {isUploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <FileUp className="h-4 w-4" />
-                    )}
-                    Upload New
-                  </label>
+                  <Download className="h-4 w-4" /> Template
                 </Button>
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="catalog-upload"
+                    className="hidden"
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    disabled={isUploading || !provider.active}
+                  />
+                  <Button
+                    asChild
+                    size="sm"
+                    disabled={isUploading || !provider.active}
+                  >
+                    <label
+                      htmlFor="catalog-upload"
+                      className="cursor-pointer gap-2"
+                    >
+                      {isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileUp className="h-4 w-4" />
+                      )}
+                      Upload CSV
+                    </label>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="rounded-md overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-y">
-                    <tr className="text-left text-muted-foreground">
-                      <th className="px-6 py-3 font-medium">Version</th>
-                      <th className="px-6 py-3 font-medium">Filename</th>
-                      <th className="px-6 py-3 font-medium">Upload Date</th>
-                      <th className="px-6 py-3 font-medium">Status</th>
+                    <tr className="text-left text-muted-foreground font-medium uppercase text-[10px]">
+                      <th className="px-6 py-3">Version</th>
+                      <th className="px-6 py-3">File</th>
+                      <th className="px-6 py-3">Upload Date</th>
+                      <th className="px-6 py-3">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {provider.catalogProviderVersions?.length === 0 ? (
+                    {!provider.catalogProviderVersions?.length ? (
                       <tr>
                         <td
                           colSpan={4}
@@ -319,7 +345,7 @@ export function ProviderDetailPage() {
                       </tr>
                     ) : (
                       [...provider.catalogProviderVersions]
-                        .reverse()
+                        .sort((a, b) => b.versionNumber - a.versionNumber)
                         .map((v) => (
                           <tr
                             key={v.id}
@@ -328,14 +354,34 @@ export function ProviderDetailPage() {
                             <td className="px-6 py-4 font-mono font-bold">
                               v{v.versionNumber}
                             </td>
-                            <td className="px-6 py-4 truncate max-w-50">
-                              {v.originalFile}
+                            <td className="px-6 py-4 truncate max-w-60">
+                              {v.originalFile.split("/").pop()}
                             </td>
                             <td className="px-6 py-4 text-muted-foreground">
                               {new Date(v.createdAt).toLocaleDateString()}
                             </td>
                             <td className="px-6 py-4">
-                              {renderStatusBadge(v.status)}
+                              <div className="flex items-center gap-2">
+                                {renderStatusBadge(v.status)}
+
+                                {v.status === "FAILED" && v.errorMessage && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <AlertCircle className="h-4 w-4 text-destructive cursor-help" />
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs bg-destructive text-destructive-foreground">
+                                        <p className="text-xs font-semibold">
+                                          Processing Error:
+                                        </p>
+                                        <p className="text-[11px]">
+                                          {v.errorMessage}
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -347,18 +393,18 @@ export function ProviderDetailPage() {
           </Card>
         </div>
 
-        {/* Sidebar Actions */}
+        {/* ACTIONS & SYSTEM */}
         <div className="space-y-6">
           <Card className="border-destructive/20 bg-destructive/5">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-destructive">
+              <CardTitle className="text-destructive flex items-center gap-2">
                 <ShieldAlert className="h-5 w-5" /> Danger Zone
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Deactivating a provider prevents new catalog uploads and ignores
-                its products in matching operations.
+              <p className="text-xs text-muted-foreground">
+                Deactivating this provider will exclude its catalog from all
+                matching operations.
               </p>
               <Button
                 variant={provider.active ? "destructive" : "default"}
@@ -371,47 +417,40 @@ export function ProviderDetailPage() {
                 ) : (
                   <FileCheck className="h-4 w-4" />
                 )}
-                {provider.active
-                  ? "Deactivate Provider"
-                  : "Reactivate Provider"}
+                {provider.active ? "Deactivate" : "Activate"}
               </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Hash className="h-5 w-5 text-primary" /> System Info
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Metadata</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm">
+            <CardContent className="space-y-4 text-[11px] font-mono">
               <div className="flex justify-between border-b pb-2">
-                <span className="text-muted-foreground">Internal ID</span>
-                <span className="font-mono text-[10px] bg-muted px-1 rounded">
-                  {provider.id}
-                </span>
+                <span className="text-muted-foreground">UUID</span>
+                <span>{provider.id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Created at</span>
-                <span>{new Date(provider.createdAt).toLocaleDateString()}</span>
+                <span className="text-muted-foreground">Created</span>
+                <span>{new Date(provider.createdAt).toLocaleString()}</span>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Confirm Dialog */}
       <AlertDialog
         open={isStatusDialogOpen}
         onOpenChange={setIsStatusDialogOpen}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Change Provider Status?</AlertDialogTitle>
             <AlertDialogDescription>
               {provider.active
-                ? "This will hide all products associated with this provider from the semantic search until reactivated."
-                : "This will make the latest active catalog of this provider available for matching again."}
+                ? "Disabling the provider will immediately stop its products from appearing in search results."
+                : "Enabling the provider will restore its products to the semantic matching engine."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -421,7 +460,7 @@ export function ProviderDetailPage() {
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                void handleToggleStatus();
+                handleToggleStatus();
               }}
               className={
                 provider.active

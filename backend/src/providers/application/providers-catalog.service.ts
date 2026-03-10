@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { CatalogProviderVersion, Prisma, Provider } from '@prisma/client';
+import { CatalogProviderVersion } from '@prisma/client';
 import { Model } from 'mongoose';
 import { AuditService } from 'src/audit/audit.service';
 import { AuditAction } from 'src/audit/enums/audit-action.enum';
@@ -9,6 +9,7 @@ import { EmbeddingsService } from 'src/embeddings/embeddings.service';
 import { EmbeddingGenerationException } from 'src/embeddings/exceptions/embedding-generation.exception';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CatalogVersionStatus } from 'src/providers/enums/catalog-version-status.enum';
+import { QueueService } from 'src/queue/queue.service';
 import { VectorDbException } from 'src/vector-db/exceptions/vector-db.exception';
 import { ProductVectorDocument } from 'src/vector-db/interfaces/provider-item-vector-db.interface';
 import { VectorDbService } from 'src/vector-db/vector-db.service';
@@ -19,7 +20,6 @@ import {
 } from '../schemas/provider-item.schema';
 import { ProcessCatalogInput } from './inputs/process-catalog.input';
 import { ValidateCatalogPreconditionsOutput } from './outputs/validate-catalog-preconditions.output';
-import { QueueService } from 'src/queue/queue.service';
 
 @Injectable()
 export class ProvidersCatalogService {
@@ -64,23 +64,19 @@ export class ProvidersCatalogService {
     filePath: string,
     reason: string,
   ): Promise<void> {
-    // register log audit
     await this.auditService.log({
       action: AuditAction.CATALOG_PROCESSING_FAILED,
-      metadata: { providerId, filePath, reason },
+      metadata: { providerId, filePath, reason, versionId },
     });
 
-    // set FAILED version in Prisma
     await this.prisma.catalogProviderVersion.update({
-      where: {
-        id: versionId,
-      },
+      where: { id: versionId },
       data: {
         status: CatalogVersionStatus.FAILED,
+        errorMessage: reason,
       },
     });
 
-    // clean documents in mongoDb
     await this.catalogItemModel.deleteMany({
       providerId,
       catalogVersionId: versionId,
@@ -92,154 +88,93 @@ export class ProvidersCatalogService {
     providerId: string,
     filePath: string,
   ): Promise<ValidateCatalogPreconditionsOutput> {
-    let isValid = true;
-    // arrange: Check if the provider exists
-    const provider: Provider = await this.prisma.provider.findUnique({
+    const provider = await this.prisma.provider.findUnique({
       where: { id: providerId },
     });
 
-    // this service will be running in the background, so we cannot return errors to the user,
-    // but we can log them and set the catalog version status to FAILED,
-    // so the user can see that the processing failed when they check the catalog versions
     if (!provider) {
-      isValid = false;
-      // just log the error, the record in catalog provider does not exist yet
-      await this.auditService.log({
-        action: AuditAction.CATALOG_PROCESSING_FAILED,
-        metadata: {
-          providerId,
-          reason: 'Provider not found',
-        },
-      });
-      return { isValid };
+      return {
+        isValid: false,
+        reason: 'Provider target not found in database',
+      };
     }
 
-    // step1: read csv and get items
     const { results: items, headers } =
       await this.csvService.readCsv<ProviderItem>(filePath);
 
-    // check if items is empty
     if (!items || items.length === 0) {
-      isValid = false;
-      await this.auditService.log({
-        action: AuditAction.CATALOG_PROCESSING_FAILED,
-        metadata: {
-          providerId,
-          filePath,
-          reason: 'CSV file is empty or invalid',
-        },
-      });
-      return { isValid };
+      return {
+        isValid: false,
+        reason: 'The CSV file is empty or has an invalid format',
+      };
     }
 
-    // check if the csv has the headers we expect
     const missingColumns = this.TEMPLATE_COLUMNS.filter(
       (col) => !headers.includes(col),
     );
-
-    const extraColumns = headers.filter(
-      (col) => !this.TEMPLATE_COLUMNS.includes(col),
-    );
-    if (missingColumns.length > 0 || extraColumns.length > 0) {
-      isValid = false;
-      await this.auditService.log({
-        action: AuditAction.CATALOG_PROCESSING_FAILED,
-        metadata: {
-          providerId,
-          filePath,
-          reason: `CSV file has missing or extra columns. Missing columns: ${missingColumns.join(', ')}. Extra columns: ${extraColumns.join(', ')}`,
-        },
-      });
+    if (missingColumns.length > 0) {
+      return {
+        isValid: false,
+        reason: `Missing required columns: ${missingColumns.join(', ')}`,
+      };
     }
 
-    // check if items have the required fields
     for (const item of items) {
       for (const field of this.REQUIRED_FIELDS) {
-        if (!item[field]) {
-          isValid = false;
-          await this.auditService.log({
-            action: AuditAction.CATALOG_PROCESSING_FAILED,
-            metadata: {
-              providerId,
-              filePath,
-              reason: `Missing required field ${field} in item with SKU ${item.sku}`,
-            },
-          });
-          return { isValid };
+        if (!item[field as keyof ProviderItem]) {
+          return {
+            isValid: false,
+            reason: `Item with SKU ${item.sku} is missing the required field: ${field}`,
+          };
         }
       }
-    }
 
-    // check if all the items has the correct provider code that matches with the provider code of the provider
-    for (const item of items) {
-      // normalize the provider code
-      const normalizedProviderCode = item.providerCode.trim().toLowerCase();
-      if (normalizedProviderCode !== provider.code) {
-        isValid = false;
-        await this.auditService.log({
-          action: AuditAction.CATALOG_PROCESSING_FAILED,
-          metadata: {
-            providerId,
-            filePath,
-            reason: `Invalid provider code ${item.providerCode} in item with SKU ${item.sku}. Expected provider code: ${provider.code}`,
-          },
-        });
-        return { isValid };
+      if (
+        item.providerCode.trim().toLowerCase() !== provider.code.toLowerCase()
+      ) {
+        return {
+          isValid: false,
+          reason: `Provider code mismatch in SKU ${item.sku}. Expected: ${provider.code}, Found: ${item.providerCode}`,
+        };
       }
     }
 
-    return { isValid, items };
+    return { isValid: true, items };
   }
 
   private async createCatalogProviderVersion(
     providerId: string,
     filePath: string,
   ): Promise<CatalogProviderVersion | undefined> {
-    let catalogProviderVersion: CatalogProviderVersion;
-    let currentVersionNumber = 1;
     try {
-      await this.prisma.$transaction(async (tx) => {
-        // get the last version for the provider || or get the count of versions for the provider and add +1 for the new version
-
+      return await this.prisma.$transaction(async (tx) => {
         const lastVersion = await tx.catalogProviderVersion.findFirst({
-          where: { providerId, status: 'ACTIVE' },
-          orderBy: { createdAt: 'desc' },
+          where: { providerId },
+          orderBy: { versionNumber: 'desc' },
         });
-        currentVersionNumber = lastVersion ? lastVersion.versionNumber + 1 : 1;
-        catalogProviderVersion = await tx.catalogProviderVersion.create({
+
+        const nextVersion = lastVersion ? lastVersion.versionNumber + 1 : 1;
+
+        return await tx.catalogProviderVersion.create({
           data: {
             providerId,
-            versionNumber: currentVersionNumber,
+            versionNumber: nextVersion,
             originalFile: filePath,
             status: CatalogVersionStatus.PROCESSING,
           },
         });
-        currentVersionNumber = catalogProviderVersion.versionNumber;
       });
-    } catch (error: unknown) {
-      let reason = 'Unknown error';
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        // get the error code and information of the error and log it in audit with the providerId and filePath
-        if (error.code === 'P2002') {
-          reason = 'Duplicate version number';
-        }
-
-        if (error.code === 'P2003') {
-          reason = 'Foreign key constraint failed';
-        }
-      }
+    } catch {
       await this.auditService.log({
         action: AuditAction.CATALOG_PROCESSING_FAILED,
         metadata: {
           providerId,
           filePath,
-          reason,
+          reason: 'Database error creating version',
         },
       });
-      return;
+      return undefined;
     }
-
-    return catalogProviderVersion;
   }
 
   private async saveCatalogItems(
@@ -250,45 +185,27 @@ export class ProvidersCatalogService {
   ): Promise<boolean> {
     try {
       await this.catalogItemModel.insertMany(
-        items.map((item) => {
-          const attributes: Record<string, unknown> = {};
-
-          for (const key in item) {
-            if (!this.REQUIRED_FIELDS.includes(key)) {
-              const value = item[key as keyof typeof item];
-
-              if (typeof value === 'string') {
-                attributes[key] = value.trim();
-              } else {
-                attributes[key] = value;
-              }
-            }
-          }
-          return {
-            providerId,
-            catalogVersionId: catalogProviderVersion.id,
-            providerCode: item.providerCode,
-            sku: item.sku,
-            name: item.name,
-            description: item.description,
-            category: item.category,
-            active: false,
-            tags: item.tags
-              ? item.tags.split('|').map((tag) => tag.trim())
-              : [],
-            attributes,
-          };
-        }),
-        { ordered: false }, // if something fails later we can clean the missing data
+        items.map((item) => ({
+          providerId,
+          catalogVersionId: catalogProviderVersion.id,
+          providerCode: item.providerCode,
+          sku: item.sku,
+          name: item.name,
+          description: item.description,
+          category: item.category,
+          active: false,
+          tags: item.tags ? item.tags.split('|').map((t) => t.trim()) : [],
+          attributes: item,
+        })),
+        { ordered: false },
       );
       return true;
-    } catch (error: unknown) {
-      // save the error in audit with the providerId and filePath
+    } catch (error) {
       await this.handleProcessFailure(
         providerId,
         catalogProviderVersion.id,
         filePath,
-        `Error saving items to MongoDB: ${(error as Error).message}`,
+        `MongoDB Insert Error: ${(error as Error).message}`,
       );
       return false;
     }
@@ -522,67 +439,134 @@ export class ProvidersCatalogService {
     }
   }
 
+  // private async uploadCatalog(input: ProcessCatalogInput): Promise<void> {
+  //   const { providerId, filePath, uploaderUserId } = input;
+
+  //   const { isValid, items } = await this.validateCatalogPreconditions(
+  //     input.providerId,
+  //     input.filePath,
+  //   );
+  //   if (!isValid) {
+  //     return;
+  //   }
+
+  //   // step2: add record in CatalogProviderVersion with status PROCESSING, and get the versionId
+  //   const catalogProviderVersion: CatalogProviderVersion | undefined =
+  //     await this.createCatalogProviderVersion(providerId, filePath);
+  //   if (!catalogProviderVersion) {
+  //     return;
+  //   }
+
+  //   // step3: save the items in MongoDB with the versionIdUUID, number of version nd providerUUID, active: false
+  //   const itemsSaved = await this.saveCatalogItems(
+  //     providerId,
+  //     catalogProviderVersion,
+  //     items,
+  //     filePath,
+  //   );
+  //   if (!itemsSaved) {
+  //     return;
+  //   }
+
+  //   // step4: for each item, generate embeddings for the items and build the array of items with the vector
+  //   const { success, vectorDbItems } = await this.generateVectorsForItems(
+  //     providerId,
+  //     catalogProviderVersion,
+  //     items,
+  //     filePath,
+  //   );
+
+  //   if (!success) {
+  //     return;
+  //   }
+
+  //   // setp5: Save in the database vector
+  //   const vectorsSaved = await this.upsertVectorsToVectorDb(
+  //     providerId,
+  //     catalogProviderVersion,
+  //     vectorDbItems,
+  //     filePath,
+  //   );
+
+  //   if (!vectorsSaved) {
+  //     return;
+  //   }
+
+  //   // step6: update the CatalogProviderVersion status to ACTIVE
+  //   // finalize: deactivate the previous version of the catalog if exists ONLY after the new version is active
+  //   await this.finalizeCatalogVersion(
+  //     providerId,
+  //     catalogProviderVersion,
+  //     uploaderUserId,
+  //     filePath,
+  //   );
+  // }
+
   private async uploadCatalog(input: ProcessCatalogInput): Promise<void> {
     const { providerId, filePath, uploaderUserId } = input;
 
-    const { isValid, items } = await this.validateCatalogPreconditions(
-      input.providerId,
-      input.filePath,
-    );
-    if (!isValid) {
-      return;
-    }
-
-    // step2: add record in CatalogProviderVersion with status PROCESSING, and get the versionId
-    const catalogProviderVersion: CatalogProviderVersion | undefined =
-      await this.createCatalogProviderVersion(providerId, filePath);
-    if (!catalogProviderVersion) {
-      return;
-    }
-
-    // step3: save the items in MongoDB with the versionIdUUID, number of version nd providerUUID, active: false
-    const itemsSaved = await this.saveCatalogItems(
+    const catalogVersion = await this.createCatalogProviderVersion(
       providerId,
-      catalogProviderVersion,
-      items,
       filePath,
     );
-    if (!itemsSaved) {
-      return;
+    if (!catalogVersion) return;
+
+    try {
+      const { isValid, items, reason } =
+        await this.validateCatalogPreconditions(providerId, filePath);
+
+      if (!isValid) {
+        await this.handleProcessFailure(
+          providerId,
+          catalogVersion.id,
+          filePath,
+          reason || 'Validation failed',
+        );
+        return;
+      }
+
+      if (
+        !(await this.saveCatalogItems(
+          providerId,
+          catalogVersion,
+          items,
+          filePath,
+        ))
+      )
+        return;
+
+      const { success, vectorDbItems } = await this.generateVectorsForItems(
+        providerId,
+        catalogVersion,
+        items,
+        filePath,
+      );
+      if (!success) return;
+
+      if (
+        !(await this.upsertVectorsToVectorDb(
+          providerId,
+          catalogVersion,
+          vectorDbItems,
+          filePath,
+        ))
+      )
+        return;
+
+      await this.finalizeCatalogVersion(
+        providerId,
+        catalogVersion,
+        uploaderUserId,
+        filePath,
+      );
+    } catch (error) {
+      await this.handleProcessFailure(
+        providerId,
+        catalogVersion.id,
+        filePath,
+        `Critical system error: ${(error as Error).message}`,
+      );
     }
-
-    // step4: for each item, generate embeddings for the items and build the array of items with the vector
-    const { success, vectorDbItems } = await this.generateVectorsForItems(
-      providerId,
-      catalogProviderVersion,
-      items,
-      filePath,
-    );
-
-    if (!success) {
-      return;
-    }
-
-    // setp5: Save in the database vector
-    const vectorsSaved = await this.upsertVectorsToVectorDb(
-      providerId,
-      catalogProviderVersion,
-      vectorDbItems,
-      filePath,
-    );
-
-    if (!vectorsSaved) {
-      return;
-    }
-
-    // step6: update the CatalogProviderVersion status to ACTIVE
-    // finalize: deactivate the previous version of the catalog if exists ONLY after the new version is active
-    await this.finalizeCatalogVersion(
-      providerId,
-      catalogProviderVersion,
-      uploaderUserId,
-      filePath,
-    );
   }
 
   processCatalog(input: ProcessCatalogInput): void {

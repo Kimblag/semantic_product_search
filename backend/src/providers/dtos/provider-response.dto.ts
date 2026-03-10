@@ -5,6 +5,7 @@ export class CatalogVersionResponseDto {
   @Expose() versionNumber: number;
   @Expose() originalFile: string;
   @Expose() status: string;
+  @Expose() errorMessage?: string;
   @Expose() createdAt: Date;
 }
 

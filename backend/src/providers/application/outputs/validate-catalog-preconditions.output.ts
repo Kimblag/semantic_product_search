@@ -5,4 +5,5 @@ export type ValidateCatalogPreconditionsOutput = {
   isValid: boolean;
   provider?: Provider | null;
   items?: ProviderItem[] | undefined;
+  reason?: string;
 };

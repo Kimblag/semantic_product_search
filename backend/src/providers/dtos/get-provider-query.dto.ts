@@ -24,5 +24,5 @@ export class GetProviderQueryDto extends PaginationQueryDto {
 
     return undefined;
   })
-  isActive?: boolean = true;
+  isActive?: boolean;
 }

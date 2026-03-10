@@ -28,6 +28,7 @@ export interface CatalogVersion {
   versionNumber: number;
   originalFile: string;
   status: CatalogStatus;
+  errorMessage?: string;
   createdAt: string;
 }
 
