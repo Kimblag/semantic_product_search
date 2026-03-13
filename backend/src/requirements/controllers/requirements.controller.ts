@@ -94,7 +94,9 @@ export class RequirementsController {
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @Get('admin/:id')
-  async getRequirementByIdAdmin(@Param('id') requirementId: string) {
+  async getRequirementByIdAdmin(
+    @Param('id') requirementId: string,
+  ): Promise<RequirementMatchingResponseDto | null> {
     return await this.requirementsService.getRequirementAdmin(requirementId);
   }
 

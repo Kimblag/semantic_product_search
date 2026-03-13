@@ -14,6 +14,7 @@ import { CreateUserPage } from "@/pages/Users/CreateUserPage";
 import { UserDetailPage } from "@/pages/Users/UserDetailPage";
 import { CreateProviderPage } from "@/pages/Providers/CreateProviderPage";
 import { ProviderDetailPage } from "@/pages/Providers/ProviderDetailPage";
+import { ClientDetailPage } from "@/pages/Clients/ClientDetailPage";
 
 export function AppRouter() {
   return (
@@ -26,6 +27,7 @@ export function AppRouter() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/requirements" element={<RequirementsPage />} />
             <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/clients/:id" element={<ClientDetailPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Route>
