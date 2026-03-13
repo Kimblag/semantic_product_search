@@ -17,6 +17,8 @@ import {
   XCircle,
   LucideIcon,
   AlertCircle,
+  Layers,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,6 +41,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import {
   fetchProviderDetail,
@@ -48,12 +57,7 @@ import {
 } from "@/api/providers";
 import { getAxiosErrorMessage } from "@/api/errors";
 import type { ProviderDetail, CatalogStatus } from "@/types/providers";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { CatalogBrowser } from "@/components/providers/CatalogBrowser";
 
 interface StatusConfig {
   variant: "default" | "secondary" | "destructive" | "outline";
@@ -237,7 +241,6 @@ export function ProviderDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* INFO & CATALOGS */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
@@ -276,121 +279,139 @@ export function ProviderDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-primary/20">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <div className="space-y-1">
-                <CardTitle>Catalog History</CardTitle>
-                <CardDescription>
-                  Upload CSV files to update the semantic database.
-                </CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => downloadProviderTemplate()}
-                  className="gap-2"
-                >
-                  <Download className="h-4 w-4" /> Template
-                </Button>
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="catalog-upload"
-                    className="hidden"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    disabled={isUploading || !provider.active}
-                  />
-                  <Button
-                    asChild
-                    size="sm"
-                    disabled={isUploading || !provider.active}
-                  >
-                    <label
-                      htmlFor="catalog-upload"
-                      className="cursor-pointer gap-2"
-                    >
-                      {isUploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <FileUp className="h-4 w-4" />
-                      )}
-                      Upload CSV
-                    </label>
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="rounded-md overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-y">
-                    <tr className="text-left text-muted-foreground font-medium uppercase text-[10px]">
-                      <th className="px-6 py-3">Version</th>
-                      <th className="px-6 py-3">File</th>
-                      <th className="px-6 py-3">Upload Date</th>
-                      <th className="px-6 py-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {!provider.catalogProviderVersions?.length ? (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="px-6 py-10 text-center text-muted-foreground italic"
-                        >
-                          No catalogs uploaded yet.
-                        </td>
-                      </tr>
-                    ) : (
-                      [...provider.catalogProviderVersions]
-                        .sort((a, b) => b.versionNumber - a.versionNumber)
-                        .map((v) => (
-                          <tr
-                            key={v.id}
-                            className="hover:bg-muted/30 transition-colors"
-                          >
-                            <td className="px-6 py-4 font-mono font-bold">
-                              v{v.versionNumber}
-                            </td>
-                            <td className="px-6 py-4 truncate max-w-60">
-                              {v.originalFile.split("/").pop()}
-                            </td>
-                            <td className="px-6 py-4 text-muted-foreground">
-                              {new Date(v.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                {renderStatusBadge(v.status)}
+          {/* CATALOG EXPLORATION TABS */}
+          <Tabs defaultValue="history" className="w-full">
+            <TabsList className="bg-muted/50 p-1 mb-2">
+              <TabsTrigger value="history" className="gap-2 text-xs py-2 px-4">
+                <History className="h-3.5 w-3.5" /> Versions & History
+              </TabsTrigger>
+              <TabsTrigger value="items" className="gap-2 text-xs py-2 px-4">
+                <Layers className="h-3.5 w-3.5" /> Product Explorer
+              </TabsTrigger>
+            </TabsList>
 
-                                {v.status === "FAILED" && v.errorMessage && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <AlertCircle className="h-4 w-4 text-destructive cursor-help" />
-                                      </TooltipTrigger>
-                                      <TooltipContent className="max-w-xs bg-destructive text-destructive-foreground">
-                                        <p className="text-xs font-semibold">
-                                          Processing Error:
-                                        </p>
-                                        <p className="text-[11px]">
-                                          {v.errorMessage}
-                                        </p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
-                              </div>
+            <TabsContent value="history" className="mt-0 animate-rise">
+              <Card className="border-primary/20">
+                <CardHeader className="flex flex-row items-center justify-between pb-4">
+                  <div className="space-y-1">
+                    <CardTitle>Catalog History</CardTitle>
+                    <CardDescription>
+                      Upload CSV files to update the semantic database.
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadProviderTemplate()}
+                      className="gap-2"
+                    >
+                      <Download className="h-4 w-4" /> Template
+                    </Button>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        id="catalog-upload"
+                        className="hidden"
+                        accept=".csv"
+                        onChange={handleFileUpload}
+                        disabled={isUploading || !provider.active}
+                      />
+                      <Button
+                        asChild
+                        size="sm"
+                        disabled={isUploading || !provider.active}
+                      >
+                        <label
+                          htmlFor="catalog-upload"
+                          className="cursor-pointer gap-2"
+                        >
+                          {isUploading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileUp className="h-4 w-4" />
+                          )}
+                          Upload CSV
+                        </label>
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="rounded-md overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50 border-y">
+                        <tr className="text-left text-muted-foreground font-medium uppercase text-[10px]">
+                          <th className="px-6 py-3">Version</th>
+                          <th className="px-6 py-3">File</th>
+                          <th className="px-6 py-3">Upload Date</th>
+                          <th className="px-6 py-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {!provider.catalogProviderVersions?.length ? (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="px-6 py-10 text-center text-muted-foreground italic"
+                            >
+                              No catalogs uploaded yet.
                             </td>
                           </tr>
-                        ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                        ) : (
+                          [...provider.catalogProviderVersions]
+                            .sort((a, b) => b.versionNumber - a.versionNumber)
+                            .map((v) => (
+                              <tr
+                                key={v.id}
+                                className="hover:bg-muted/30 transition-colors"
+                              >
+                                <td className="px-6 py-4 font-mono font-bold">
+                                  v{v.versionNumber}
+                                </td>
+                                <td className="px-6 py-4 truncate max-w-60">
+                                  {v.originalFile.split("/").pop()}
+                                </td>
+                                <td className="px-6 py-4 text-muted-foreground">
+                                  {new Date(v.createdAt).toLocaleDateString()}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    {renderStatusBadge(v.status)}
+                                    {v.status === "FAILED" &&
+                                      v.errorMessage && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <AlertCircle className="h-4 w-4 text-destructive cursor-help" />
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs bg-destructive text-destructive-foreground">
+                                              <p className="text-xs font-semibold">
+                                                Processing Error:
+                                              </p>
+                                              <p className="text-[11px]">
+                                                {v.errorMessage}
+                                              </p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="items" className="mt-0">
+              <CatalogBrowser providerId={provider.id} />
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* ACTIONS & SYSTEM */}

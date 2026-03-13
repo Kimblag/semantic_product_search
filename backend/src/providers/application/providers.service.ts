@@ -12,10 +12,19 @@ import { GetProviderQueryInput } from './inputs/get-provider-query.input';
 import { UpdateProviderInput } from './inputs/update-provider.input';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 import { plainToInstance } from 'class-transformer';
+import { GetCatalogItemsQueryDto } from '../dtos/get-catalog-items-query.dto';
+import { CatalogItemResponseDto } from '../dtos/catalog-item-response.dto';
+import { Model, QueryFilter } from 'mongoose';
+import { CatalogItem } from '../schemas/provider-item.schema';
+import { InjectModel } from '@nestjs/mongoose';
 
 @Injectable()
 export class ProvidersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectModel(CatalogItem.name)
+    private readonly catalogItemModel: Model<CatalogItem>,
+  ) {}
 
   // create provider
   async createProvider(
@@ -194,5 +203,45 @@ export class ProvidersService {
     } catch {
       throw new InternalServerErrorException('Internal server error.');
     }
+  }
+
+  async findCatalogItems(
+    providerId: string,
+    query: GetCatalogItemsQueryDto,
+  ): Promise<PaginatedResponse<CatalogItemResponseDto>> {
+    const { page, limit, q } = query;
+    const skip = (page - 1) * limit;
+
+    const filter: QueryFilter<CatalogItem> = {
+      providerId,
+      active: true,
+    };
+
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { sku: { $regex: q, $options: 'i' } },
+        { category: { $regex: q, $options: 'i' } },
+      ];
+    }
+
+    const [total, items] = await Promise.all([
+      this.catalogItemModel.countDocuments(filter),
+      this.catalogItemModel.find(filter).skip(skip).limit(limit).lean(),
+    ]);
+
+    const dtos = plainToInstance(CatalogItemResponseDto, items, {
+      excludeExtraneousValues: true,
+    });
+
+    return {
+      data: dtos,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }

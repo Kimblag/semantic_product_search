@@ -1,6 +1,7 @@
 import { PaginatedResponse } from "@/types/common";
 import { api } from "./api";
 import {
+  CatalogItem,
   CreateProviderData,
   ProviderDetail,
   ProviderListItem,
@@ -73,7 +74,7 @@ export async function downloadProviderTemplate(): Promise<void> {
   const response = await api.get("/providers/template", {
     responseType: "blob",
   });
-  
+
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement("a");
   link.href = url;
@@ -81,4 +82,20 @@ export async function downloadProviderTemplate(): Promise<void> {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+export async function fetchCatalogItems(
+  providerId: string,
+  params: { page: number; limit: number; q?: string },
+): Promise<PaginatedResponse<CatalogItem>> {
+  const queryParams = new URLSearchParams({
+    page: params.page.toString(),
+    limit: params.limit.toString(),
+  });
+  if (params.q) queryParams.append("q", params.q);
+
+  const response = await api.get<PaginatedResponse<CatalogItem>>(
+    `/providers/${providerId}/items?${queryParams.toString()}`,
+  );
+  return response.data;
 }

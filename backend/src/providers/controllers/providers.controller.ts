@@ -42,6 +42,8 @@ import { ProviderResponseDto } from '../dtos/provider-response.dto';
 import { UpdateProviderDto } from '../dtos/update-provider.dto';
 import { ProviderCatalogFilePipe } from './pipes/provider-catalog-file.pipe';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
+import { GetCatalogItemsQueryDto } from '../dtos/get-catalog-items-query.dto';
+import { CatalogItemResponseDto } from '../dtos/catalog-item-response.dto';
 
 @ApiBearerAuth()
 @Controller('providers')
@@ -192,5 +194,15 @@ export class ProvidersController {
     });
 
     return;
+  }
+
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Get(':id/items')
+  async findCatalogItems(
+    @Param('id') providerId: string,
+    @Query() query: GetCatalogItemsQueryDto,
+  ): Promise<PaginatedResponse<CatalogItemResponseDto>> {
+    return await this.providersService.findCatalogItems(providerId, query);
   }
 }

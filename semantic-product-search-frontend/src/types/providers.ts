@@ -58,3 +58,14 @@ export interface CreateProviderData {
 export interface UpdateProviderData extends Partial<CreateProviderData> {
   active?: boolean;
 }
+
+
+export interface CatalogItem {
+  id: string;
+  sku: string;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  attributes: Record<string, unknown>;
+}
