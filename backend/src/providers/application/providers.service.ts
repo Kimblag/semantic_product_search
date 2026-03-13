@@ -17,6 +17,7 @@ import { CatalogItemResponseDto } from '../dtos/catalog-item-response.dto';
 import { Model, QueryFilter } from 'mongoose';
 import { CatalogItem } from '../schemas/provider-item.schema';
 import { InjectModel } from '@nestjs/mongoose';
+import { CatalogVersionStatus } from '../enums/catalog-version-status.enum';
 
 @Injectable()
 export class ProvidersService {
@@ -169,39 +170,89 @@ export class ProvidersService {
   async updateProvider(input: UpdateProviderInput): Promise<void> {
     const data: Prisma.ProviderUpdateInput = {};
 
-    if (input.code) {
-      data.code = input.code;
-    }
-
-    if (input.name) {
-      data.name = input.name;
-    }
-
-    if (input.email) {
-      data.email = input.email;
-    }
-
-    if (input.telephone) {
-      data.telephone = input.telephone;
-    }
-
-    if (input.address) {
-      data.address = input.address;
-    }
-
-    if (input.active !== undefined) {
-      data.active = input.active;
-    }
+    if (input.code) data.code = input.code;
+    if (input.name) data.name = input.name;
+    if (input.email) data.email = input.email;
+    if (input.telephone) data.telephone = input.telephone;
+    if (input.address) data.address = input.address;
+    if (input.active !== undefined) data.active = input.active;
 
     try {
-      await this.prisma.provider.update({
-        where: {
-          id: input.id,
-        },
-        data,
+      await this.prisma.$transaction(async (tx) => {
+        await tx.provider.update({
+          where: { id: input.id },
+          data,
+        });
+
+        if (input.active !== undefined) {
+          if (input.active === false) {
+            await tx.catalogProviderVersion.updateMany({
+              where: {
+                providerId: input.id,
+                status: CatalogVersionStatus.ACTIVE,
+              },
+              data: { status: CatalogVersionStatus.ARCHIVED },
+            });
+          } else {
+            const latestVersion = await tx.catalogProviderVersion.findFirst({
+              where: {
+                providerId: input.id,
+                status: {
+                  notIn: [
+                    CatalogVersionStatus.FAILED,
+                    CatalogVersionStatus.PROCESSING,
+                  ],
+                },
+              },
+              orderBy: { versionNumber: 'desc' },
+            });
+
+            if (latestVersion) {
+              await tx.catalogProviderVersion.update({
+                where: { id: latestVersion.id },
+                data: { status: CatalogVersionStatus.ACTIVE },
+              });
+            }
+          }
+        }
       });
-    } catch {
-      throw new InternalServerErrorException('Internal server error.');
+
+      if (input.active !== undefined) {
+        if (input.active === false) {
+          await this.catalogItemModel.updateMany(
+            { providerId: input.id },
+            { $set: { active: false } },
+          );
+        } else {
+          const currentActive =
+            await this.prisma.catalogProviderVersion.findFirst({
+              where: {
+                providerId: input.id,
+                status: CatalogVersionStatus.ACTIVE,
+              },
+            });
+
+          if (currentActive) {
+            await this.catalogItemModel.updateMany(
+              {
+                providerId: input.id,
+                catalogVersionId: currentActive.id,
+              },
+              { $set: { active: true } },
+            );
+          }
+        }
+      }
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Provider with ID ${input.id} not found`);
+      }
+      throw new InternalServerErrorException(
+        'Error updating provider and syncing catalog status.',
+      );
     }
   }
 

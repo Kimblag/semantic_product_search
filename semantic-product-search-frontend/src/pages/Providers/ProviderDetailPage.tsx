@@ -143,7 +143,9 @@ export function ProviderDetailPage() {
     try {
       const newStatus = !provider.active;
       await updateProvider(providerId, { active: newStatus });
-      setProvider({ ...provider, active: newStatus });
+
+      await loadData(false);
+
       toast.success(`Provider ${newStatus ? "activated" : "deactivated"}`);
     } catch (err) {
       toast.error(getAxiosErrorMessage(err) || "Update failed");
@@ -283,14 +285,14 @@ export function ProviderDetailPage() {
           <Tabs defaultValue="history" className="w-full">
             <TabsList className="bg-muted/50 p-1 mb-2">
               <TabsTrigger value="history" className="gap-2 text-xs py-2 px-4">
-                <History className="h-3.5 w-3.5" /> Versions & History
+                <History className="h-3.5 w-3.5" /> Version History
               </TabsTrigger>
               <TabsTrigger value="items" className="gap-2 text-xs py-2 px-4">
                 <Layers className="h-3.5 w-3.5" /> Product Explorer
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="history" className="mt-0 animate-rise">
+            <TabsContent value="history" className="mt-0">
               <Card className="border-primary/20">
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                   <div className="space-y-1">

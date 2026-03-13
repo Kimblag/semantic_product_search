@@ -195,10 +195,25 @@ export class MatchingService {
     clientId: string,
     filePath: string,
     uploaderUserId: string,
-  ) {
+  ): Promise<ScoredPineconeRecord<RecordMetadata>[][] | null> {
     const allResults: ScoredPineconeRecord<RecordMetadata>[][] = [];
 
     try {
+      const activeProviders = await this.prisma.provider.findMany({
+        where: { active: true },
+        select: { id: true },
+      });
+
+      const activeProviderIds = activeProviders.map((p) => p.id);
+
+      if (activeProviderIds.length === 0) {
+        return itemsWithVectors.map(() => []);
+      }
+
+      const pineconeFilter = {
+        providerId: { $in: activeProviderIds },
+      };
+
       for (
         let i = 0;
         i < itemsWithVectors.length;
@@ -208,7 +223,7 @@ export class MatchingService {
 
         const batchResults = await Promise.all(
           batch.map((item) =>
-            this.searchWithRetry(item.vector, this.TOP_K, undefined),
+            this.searchWithRetry(item.vector, this.TOP_K, pineconeFilter),
           ),
         );
 
