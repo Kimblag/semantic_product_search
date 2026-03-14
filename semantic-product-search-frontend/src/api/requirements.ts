@@ -1,6 +1,7 @@
 import {
   RequirementListItem,
   GetRequirementHistoryParams,
+  RequirementMatchingResponse,
 } from "@/types/requirement";
 import { PaginatedResponse } from "@/types/common";
 import { api } from "./api";
@@ -46,6 +47,32 @@ export const downloadRequirementTemplate = async (): Promise<void> => {
   document.body.appendChild(link);
   link.click();
 
+  link.parentNode?.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+export const fetchRequirementDetail = async (
+  id: string,
+  isAdmin: boolean,
+): Promise<RequirementMatchingResponse> => {
+  const endpoint = isAdmin
+    ? `/requirements/admin/${id}`
+    : `/requirements/${id}`;
+  const response = await api.get<RequirementMatchingResponse>(endpoint);
+  return response.data;
+};
+
+export const downloadRequirementCsv = async (id: string): Promise<void> => {
+  const response = await api.get(`/requirements/${id}/export/csv`, {
+    responseType: "blob",
+  });
+
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", `requirement_results_${id.split("-")[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
   link.parentNode?.removeChild(link);
   window.URL.revokeObjectURL(url);
 };
