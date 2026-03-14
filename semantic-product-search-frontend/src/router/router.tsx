@@ -15,6 +15,8 @@ import { UserDetailPage } from "@/pages/Users/UserDetailPage";
 import { CreateProviderPage } from "@/pages/Providers/CreateProviderPage";
 import { ProviderDetailPage } from "@/pages/Providers/ProviderDetailPage";
 import { ClientDetailPage } from "@/pages/Clients/ClientDetailPage";
+import { EditClientPage } from "@/pages/Clients/EditClientPage";
+import { CreateClientPage } from "@/pages/Clients/CreateClientPage";
 
 export function AppRouter() {
   return (
@@ -28,6 +30,8 @@ export function AppRouter() {
             <Route path="/requirements" element={<RequirementsPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/clients/:id" element={<ClientDetailPage />} />
+            <Route path="/clients/create" element={<CreateClientPage />} />
+            <Route path="/clients/edit/:id" element={<EditClientPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Route>

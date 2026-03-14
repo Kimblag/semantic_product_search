@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   Loader2,
   User,
+  Edit,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ export function ClientDetailPage() {
     if (!client || !id) return;
     try {
       const nextStatus = !client.active;
-      await updateClient(id, { active: nextStatus });
+      await updateClient(id, { isActive: nextStatus });
       setClient({ ...client, active: nextStatus });
       toast.success(`Client ${nextStatus ? "activated" : "deactivated"}`);
     } catch {
@@ -88,21 +89,31 @@ export function ClientDetailPage() {
       </div>
 
       {/* HEADER SECTION */}
-      <div className="flex items-center gap-4 border-b pb-6">
-        <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
-          <User className="h-7 w-7" />
-        </div>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
-          <div className="flex gap-2">
-            <Badge variant={client.active ? "default" : "secondary"}>
-              {client.active ? "Active" : "Inactive"}
-            </Badge>
-            <span className="text-[10px] font-mono text-muted-foreground uppercase self-center">
-              UID: {client.id}
-            </span>
+      {/* HEADER SECTION */}
+      <div className="flex items-end justify-between border-b pb-6">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+            <User className="h-7 w-7" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
+            <div className="flex gap-2">
+              <Badge variant={client.active ? "default" : "secondary"}>
+                {client.active ? "Active" : "Inactive"}
+              </Badge>
+              <span className="text-[10px] font-mono text-muted-foreground uppercase self-center">
+                UID: {client.id}
+              </span>
+            </div>
           </div>
         </div>
+        <Button
+          size="sm"
+          onClick={() => navigate(`/clients/edit/${client.id}`)}
+          className="gap-2 h-9 cursor-pointer"
+        >
+          <Edit className="h-4 w-4" /> Edit Profile
+        </Button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

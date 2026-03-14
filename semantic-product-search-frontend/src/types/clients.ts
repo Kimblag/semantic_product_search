@@ -17,3 +17,14 @@ export interface GetClientsParams {
   email?: string;
   isActive?: boolean;
 }
+
+export interface CreateClientInput {
+  name: string;
+  email: string;
+  telephone: string;
+  address: string;
+}
+
+export interface UpdateClientInput extends Partial<CreateClientInput> {
+  isActive?: boolean;
+}

@@ -1,4 +1,9 @@
-import { Client, ClientResponse, GetClientsParams } from "@/types/clients";
+import {
+  ClientResponse,
+  CreateClientInput,
+  GetClientsParams,
+  UpdateClientInput,
+} from "@/types/clients";
 import { PaginatedResponse } from "@/types/common";
 import { api } from "./api";
 
@@ -25,9 +30,16 @@ export const fetchClientById = async (id: string): Promise<ClientResponse> => {
   return response.data;
 };
 
+export const createClient = async (
+  data: CreateClientInput,
+): Promise<ClientResponse> => {
+  const response = await api.post<ClientResponse>("/clients", data);
+  return response.data;
+};
+
 export const updateClient = async (
   id: string,
-  data: Partial<Omit<Client, "id" | "createdAt">>,
+  data: UpdateClientInput,
 ): Promise<void> => {
   await api.patch(`/clients/${id}`, data);
 };
