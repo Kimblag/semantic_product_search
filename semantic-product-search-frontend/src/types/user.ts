@@ -21,3 +21,10 @@ export type UsersListResponse = {
     totalPages: number;
   };
 };
+
+export interface CurrentUserResponse {
+  id: string;
+  email: string;
+  name: string;
+  roles: string[];
+}

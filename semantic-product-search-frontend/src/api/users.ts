@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { UsersListResponse } from "../types/user";
+import type { CurrentUserResponse, UsersListResponse } from "../types/user";
 
 interface FetchUsersParams {
   page?: number;
@@ -120,4 +120,13 @@ export async function updateUserRoles(
   roles: string[],
 ): Promise<void> {
   await api.put(`/users/${userId}/roles`, { roles });
+}
+
+export async function fetchMe(): Promise<CurrentUserResponse> {
+  const response = await api.get<CurrentUserResponse>("/users/me");
+  return response.data;
+}
+
+export async function updateMeName(name: string): Promise<void> {
+  await api.patch("/users/me", { name });
 }

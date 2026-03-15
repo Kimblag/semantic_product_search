@@ -1,18 +1,18 @@
-import { useState, useMemo, useCallback } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LogOut, Menu, X } from "lucide-react";
+import { SVGProps, useCallback, useMemo, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Toaster } from "sonner";
 import { useAuth } from "../auth/useAuth";
 import {
-  DashboardIcon,
-  RequirementIcon,
-  ProviderIcon,
   ClientIcon,
-  UsersIcon,
-  ShieldIcon,
+  DashboardIcon,
   ProfileIcon,
+  ProviderIcon,
+  RequirementIcon,
+  ShieldIcon,
+  UsersIcon,
 } from "../components/icons";
-import { SVGProps } from "react";
 
 type MenuItem = {
   label: string;
@@ -238,6 +238,7 @@ export function MainLayout() {
           </aside>
         </div>
       )}
+      <Toaster richColors position="top-right" />
     </div>
   );
 }
