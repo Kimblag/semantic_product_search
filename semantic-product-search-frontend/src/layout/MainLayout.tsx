@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Menu, X } from "lucide-react";
 import { SVGProps, useCallback, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Toaster } from "sonner";
 import { useAuth } from "../auth/useAuth";
 import {
   ClientIcon,
@@ -238,7 +237,6 @@ export function MainLayout() {
           </aside>
         </div>
       )}
-      <Toaster richColors position="top-right" />
     </div>
   );
 }
