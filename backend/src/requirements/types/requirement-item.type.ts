@@ -1,5 +1,5 @@
 // csv/types/requirement-item.type.ts
-export type RequirementItem = {
+export type RequirementItemRaw = {
   productName: string; // product name
   description?: string; // product description, optional
   category?: string; // category, optional

@@ -11,7 +11,7 @@ import { RequirementStatus } from 'src/matching/enums/requirement-status.enum';
 import { MatchingService } from 'src/matching/matching.service';
 import { MatchingResultDocument } from 'src/matching/schemas/requirement-root-document.schema';
 import { QueueService } from 'src/queue/queue.service';
-import { RequirementItem } from 'src/requirements/types/requirement-item.type';
+import { RequirementItemRaw } from 'src/requirements/types/requirement-item.type';
 
 import { flattenRequirementsForCsv } from 'src/common/mappers/requirement-to-csv.mapper';
 import { PassThrough } from 'stream';
@@ -25,10 +25,12 @@ import {
 } from '../dtos/get-history-query.dto';
 import {
   Match,
+  RequirementItem,
   RequirementMatchingResponseDto,
   ResultEntry,
 } from '../dtos/requirement-matchig-response.dto';
 import { RequirementResponseDto } from '../dtos/requirement-response.dto';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 
 @Injectable()
 export class RequirementsService {
@@ -67,7 +69,7 @@ export class RequirementsService {
   private async validateRequirementsPreconditions(
     clientId: string,
     filePath: string,
-  ): Promise<{ isValid: boolean; items?: RequirementItem[] }> {
+  ): Promise<{ isValid: boolean; items?: RequirementItemRaw[] }> {
     // arrange: Check if the client exists
     const client: Client = await this.prisma.client.findUnique({
       where: { id: clientId },
@@ -267,27 +269,25 @@ export class RequirementsService {
 
   private async enrichRequirementsWithMatches(
     requirements: RequirementFilteredItem[],
+    page: number = 1,
+    limit: number = 10,
   ): Promise<RequirementMatchingResponseDto[]> {
-    // Early return 1 - No requirements found for the user
     if (requirements.length === 0) return [];
 
     const requirementIds: string[] = requirements
       .filter((req) => req.status === RequirementStatus.PROCESSED)
       .map((req) => req.id);
 
-    // Early return 2 - No processed requirements found
     if (requirementIds.length === 0) {
       return requirements.map((req) => this.mapToResponseDto(req, []));
     }
 
     const matches = await this.getMatches(requirementIds);
 
-    // Early return 3 - No matching results found
     if (!matches || matches.length === 0) {
       return requirements.map((req) => this.mapToResponseDto(req, []));
     }
 
-    // Extract unique Provider IDs
     const uniqueProviderIds = new Set<string>();
     matches.forEach((matchDoc) => {
       matchDoc.items.forEach((itemWrapper) => {
@@ -309,34 +309,50 @@ export class RequirementsService {
           acc[matchDoc.requirementId] = [];
         }
 
+        const allItems: RequirementItem[] = matchDoc.items.map((i) => ({
+          productName: i.item.productName,
+          description: i.item.description,
+          category: i.item.category,
+          brand: i.item.brand,
+          color: i.item.color,
+          size: i.item.size,
+          material: i.item.material,
+          tags: i.item.tags,
+          matches: i.matches.map(
+            (m): Match => ({
+              providerId: m.providerId,
+              providerName:
+                providerIdToNameMap.get(m.providerId) || 'Unknown Provider',
+              catalogItemId: m.catalogItemId,
+              catalogVersionId: m.catalogVersionId,
+              sku: m.sku,
+              name: m.name,
+              category: m.category,
+              tags: m.tags,
+              score: m.score,
+            }),
+          ),
+        }));
+
+        const totalItems = allItems.length;
+        const safePage = Number(page) || 1;
+        const safeLimit = Number(limit) || 10;
+        const skip = (safePage - 1) * safeLimit;
+
+        const paginatedData = allItems.slice(skip, skip + safeLimit);
+
         const resultEntry: ResultEntry = {
           matchingId: matchDoc._id.toString(),
           createdAt: matchDoc.createdAt,
-          items: matchDoc.items.map((i) => ({
-            productName: i.item.productName,
-            description: i.item.description,
-            category: i.item.category,
-            brand: i.item.brand,
-            color: i.item.color,
-            size: i.item.size,
-            material: i.item.material,
-            tags: i.item.tags,
-
-            matches: i.matches.map(
-              (m): Match => ({
-                providerId: m.providerId,
-                providerName:
-                  providerIdToNameMap.get(m.providerId) || 'Unknown Provider',
-                catalogItemId: m.catalogItemId,
-                catalogVersionId: m.catalogVersionId,
-                sku: m.sku,
-                name: m.name,
-                category: m.category,
-                tags: m.tags,
-                score: m.score,
-              }),
-            ),
-          })),
+          items: {
+            data: paginatedData,
+            meta: {
+              total: totalItems,
+              page: safePage,
+              limit: safeLimit,
+              totalPages: Math.ceil(totalItems / safeLimit) || 1,
+            },
+          },
         };
 
         acc[matchDoc.requirementId].push(resultEntry);
@@ -359,12 +375,17 @@ export class RequirementsService {
   async getRequirementByUser(
     userId: string,
     requirementId: string,
+    query: PaginationQueryDto, // <-- Añadido
   ): Promise<RequirementMatchingResponseDto> {
     const { requirements } = await this.getRequirements(
       { requirementId },
       userId,
     );
-    const result = await this.enrichRequirementsWithMatches(requirements);
+    const result = await this.enrichRequirementsWithMatches(
+      requirements,
+      query.page,
+      query.limit,
+    );
     return result.length > 0 ? result[0] : null;
   }
 
@@ -425,12 +446,17 @@ export class RequirementsService {
 
   async getRequirementAdmin(
     requirementId: string,
+    query?: PaginationQueryDto,
   ): Promise<RequirementMatchingResponseDto | null> {
     const { requirements } = await this.getRequirements(
       { requirementId },
       null,
     );
-    const result = await this.enrichRequirementsWithMatches(requirements);
+    const result = await this.enrichRequirementsWithMatches(
+      requirements,
+      query.page,
+      query.limit,
+    );
     return result.length > 0 ? result[0] : null;
   }
 
@@ -438,7 +464,7 @@ export class RequirementsService {
     stream: PassThrough;
     headers: string[];
   }> {
-    const requirement = await this.getRequirementAdmin(requirementId);
+    const requirement = await this.getRequirementAdmin(requirementId, null);
 
     if (!requirement) {
       throw new InternalServerErrorException('Requirement not found');

@@ -54,14 +54,23 @@ export const downloadRequirementTemplate = async (): Promise<void> => {
 export const fetchRequirementDetail = async (
   id: string,
   isAdmin: boolean,
+  page: number = 1,
+  limit: number = 10,
 ): Promise<RequirementMatchingResponse> => {
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+
   const endpoint = isAdmin
     ? `/requirements/admin/${id}`
     : `/requirements/${id}`;
-  const response = await api.get<RequirementMatchingResponse>(endpoint);
+
+  const response = await api.get<RequirementMatchingResponse>(
+    `${endpoint}?${queryParams.toString()}`,
+  );
   return response.data;
 };
-
 export const downloadRequirementCsv = async (id: string): Promise<void> => {
   const response = await api.get(`/requirements/${id}/export/csv`, {
     responseType: "blob",

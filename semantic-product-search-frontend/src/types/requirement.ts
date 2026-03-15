@@ -1,3 +1,5 @@
+import { PaginatedResponse } from "./common";
+
 export type RequirementStatus = "PROCESSING" | "PROCESSED" | "ERROR";
 
 export interface RequirementListItem {
@@ -44,7 +46,7 @@ export interface RequirementItem {
 
 export interface ResultEntry {
   matchingId: string;
-  items: RequirementItem[];
+  items: PaginatedResponse<RequirementItem>;
   createdAt: string;
 }
 

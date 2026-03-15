@@ -39,6 +39,7 @@ import {
 import { RequirementMatchingResponseDto } from '../dtos/requirement-matchig-response.dto';
 import { RequirementResponseDto } from '../dtos/requirement-response.dto';
 import { RequirementFilePipe } from '../pipes/requirement-file.pipe';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 
 @ApiBearerAuth()
 @Controller('requirements')
@@ -90,14 +91,17 @@ export class RequirementsController {
   ): Promise<PaginatedResponse<RequirementResponseDto>> {
     return await this.requirementsService.getAllRequirementsAdmin(query);
   }
-
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @Get('admin/:id')
   async getRequirementByIdAdmin(
     @Param('id') requirementId: string,
+    @Query() query: PaginationQueryDto,
   ): Promise<RequirementMatchingResponseDto | null> {
-    return await this.requirementsService.getRequirementAdmin(requirementId);
+    return await this.requirementsService.getRequirementAdmin(
+      requirementId,
+      query,
+    );
   }
 
   @HttpCode(HttpStatus.OK)
@@ -128,10 +132,12 @@ export class RequirementsController {
   async getRequirementByIdUser(
     @User() user: JwtPayload,
     @Param('id') requirementId: string,
+    @Query() query: PaginationQueryDto,
   ): Promise<RequirementMatchingResponseDto | null> {
     return await this.requirementsService.getRequirementByUser(
       user.sub,
       requirementId,
+      query,
     );
   }
 

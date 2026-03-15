@@ -11,7 +11,7 @@ import { AuditAction } from 'src/audit/enums/audit-action.enum';
 import { EmbeddingsService } from 'src/embeddings/embeddings.service';
 import { EmbeddingGenerationException } from 'src/embeddings/exceptions/embedding-generation.exception';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { RequirementItem } from 'src/requirements/types/requirement-item.type';
+import { RequirementItemRaw } from 'src/requirements/types/requirement-item.type';
 import { VectorDbException } from 'src/vector-db/exceptions/vector-db.exception';
 import { VectorDbService } from 'src/vector-db/vector-db.service';
 import { RequirementStatus } from './enums/requirement-status.enum';
@@ -61,7 +61,7 @@ export class MatchingService {
     });
   }
 
-  private buildEmbeddingText(item: RequirementItem): string {
+  private buildEmbeddingText(item: RequirementItemRaw): string {
     // check the fields to avoid undefined values, and build the embedding text with the available fields
     // avoid blank spaces and newlines, to save tokens
     const parts = [`Name: ${item.productName}`];
@@ -108,15 +108,15 @@ export class MatchingService {
 
   private async generateVectorsForRequirements(
     requirementId: string,
-    requirements: RequirementItem[],
+    requirements: RequirementItemRaw[],
     clientId: string,
     filePath: string,
     uploaderUserId: string,
   ): Promise<{
     success: boolean;
-    itemsWithVectors: (RequirementItem & { vector: number[] })[];
+    itemsWithVectors: (RequirementItemRaw & { vector: number[] })[];
   }> {
-    const itemsWithVectors: (RequirementItem & { vector: number[] })[] = [];
+    const itemsWithVectors: (RequirementItemRaw & { vector: number[] })[] = [];
 
     try {
       for (let i = 0; i < requirements.length; i += this.EMBEDDING_BATCH_SIZE) {
@@ -191,7 +191,7 @@ export class MatchingService {
 
   private async searchCatalogMatches(
     requirementId: string,
-    itemsWithVectors: (RequirementItem & { vector: number[] })[],
+    itemsWithVectors: (RequirementItemRaw & { vector: number[] })[],
     clientId: string,
     filePath: string,
     uploaderUserId: string,
@@ -250,7 +250,7 @@ export class MatchingService {
   private buildMatchingDocument(
     requirementId: string,
     uploaderUserId: string,
-    itemsWithVectors: (RequirementItem & { vector: number[] })[],
+    itemsWithVectors: (RequirementItemRaw & { vector: number[] })[],
     searchResults: ScoredPineconeRecord<RecordMetadata>[][],
   ) {
     const items = itemsWithVectors.map((reqItem, index) => {
@@ -301,7 +301,7 @@ export class MatchingService {
 
   async matchRequirementsToCatalog(
     requirement: Requirement,
-    requirements: RequirementItem[],
+    requirements: RequirementItemRaw[],
     uploaderUserId: string,
   ) {
     // generate embeddings for the requirement items

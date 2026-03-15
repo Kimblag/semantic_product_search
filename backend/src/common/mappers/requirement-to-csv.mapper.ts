@@ -9,7 +9,7 @@ export function flattenRequirementsForCsv(
 
   requirements.forEach((req) => {
     req.results.forEach((result) => {
-      result.items.forEach((item) => {
+      result.items.data.forEach((item) => {
         if (!item.matches.length) {
           rows.push({
             requirementId: req.requirementId,
